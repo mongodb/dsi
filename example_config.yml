@@ -1,0 +1,10 @@
+evergreen:
+  user: "ryan.timmons"  # your email minus @10gen.com
+  api_key: "deadbeef"  # https://evergreen.mongodb.com/settings
+  # static values:
+  api_server_host: "https://evergreen.mongodb.com/api"
+  ui_server_host: "https://evergreen.mongodb.com"
+  rest_server_host: "http://evergreen-api.mongodb.com:8080"
+github:
+  # https://github.com/settings/tokens
+  token: "feedbeef"

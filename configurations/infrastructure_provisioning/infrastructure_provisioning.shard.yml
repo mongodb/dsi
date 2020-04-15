@@ -1,0 +1,25 @@
+tfvars:
+  # Contents of this is transformed into input JSON to override terraform default values
+  # Note that all tfvars values have defaults, and are therefore optional
+  cluster_name: shard
+
+  mongod_instance_count: 0
+  mongod_ebs_instance_count: 9
+  mongod_ebs_instance_type: c3.8xlarge
+  mongod_ebs_size: 320
+  mongod_ebs_iops: 5500
+
+  mongos_instance_count: 3
+  mongos_instance_type: c3.8xlarge
+
+  configsvr_instance_count: 3
+  configsvr_instance_type: m5.xlarge
+
+  workload_instance_count: 1
+  workload_instance_type: c3.8xlarge
+
+  region: us-west-2
+  availability_zone: us-west-2a
+
+  tags:
+    expire-on-delta: 4      # adjust expire_on to now + expire-on-delta hours

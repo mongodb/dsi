@@ -1,0 +1,6 @@
+task_name: parallel_insert
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ParallelInsert
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/docs/ParallelInsert.yml

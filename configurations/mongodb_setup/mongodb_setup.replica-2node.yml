@@ -1,0 +1,60 @@
+# Shared by all mongods
+journal_dir: /media/ebs2/journal
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  replication:
+    replSetName: initialsyncrs
+    oplogSizeMB: 153600   # 150GB oplog
+    # setParameter:
+    # Exhaust cursor feature support is available only since MongoDB 4.1.4.
+    # To enable/disable exhaust cursor support for initial sync collection cloner.
+    # Default is true (i.e. exhaust cursor support is enabled) since MongoDB 4.1.4.
+    # collectionClonerUsesExhaust: true
+
+authentication:
+  enabled: false
+
+topology:
+  - id: initialsyncrs
+    cluster_type: replset
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+  - cluster_type: standalone
+    public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+    private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  secondary: ${mongodb_setup.topology.0.mongod.1.private_ip}
+  port: 27017
+  empty_node: ${mongodb_setup.topology.1.private_ip}
+  is_sharded: false
+  is_replset: true
+  secondaries: 1  # Only 1 secondary at start
+  mongodb_setup: replica-2node
+  # This appends the replicaset information to the end of the default mongodb_url and ends up
+  # looking like "mongodb://username:password@10.2.0.200:27017/admin?ssl=false&replicaSet=rs0"
+  mongodb_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}
+
+# Hosts to run correctness tests on.
+# It is expected that the second standalone cluster will be part of the replica set at the end of
+# the test, and so is checked as part of the check on the primary.
+validate:
+  primaries:
+    - ${mongodb_setup.topology.0.mongod.0.private_ip}:27017

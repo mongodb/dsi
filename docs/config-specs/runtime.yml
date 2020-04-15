@@ -1,0 +1,34 @@
+# This config file contains runtime parameters. Typical usage is to cat Evergreen variables into
+# this when starting a build.
+#
+# Example:
+
+is_patch: false
+task_id: 123...
+task_name: initialsync_MMAPv1
+execution: 1
+build_id: 123...
+build_variant: linux-standalone
+version_id: 123...
+workdir: /home/ec2_user/123...
+revision: 123...
+project: sys-perf
+branch_name: master
+
+# sys-perf expansions
+ext: null
+script_flags: --ycsb-throughput-analysis reports
+dsi_rev: 123...
+compare_task: industry_benchmarks_WT
+workloads_rev: 123...
+YCSB_rev: 123...
+
+# Merely for demonstrating null valued key support
+overridden_none: null
+override_with_none: "a string value"
+overridden_dict:
+  key1: val1
+  key2: val2
+overridden_list:
+  - val1
+  - val2

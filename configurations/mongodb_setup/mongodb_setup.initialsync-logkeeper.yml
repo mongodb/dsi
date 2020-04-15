@@ -1,0 +1,52 @@
+journal_dir: /media/ebs2/journal
+
+# Shared by all mongods
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  replication:
+    oplogSizeMB: 2000000
+    replSetName: logkeeper-rs0
+  setParameter:
+    numInitialSyncAttempts: 1
+    # Exhaust cursor feature support is available only since MongoDB 4.1.4.
+    # To enable/disable exhaust cursor support for initial sync collection cloner.
+    # Default is true (i.e. exhaust cursor support is enabled) since MongoDB 4.1.4.
+    # collectionClonerUsesExhaust: true
+
+authentication:
+  enabled: false
+
+topology:
+  - id: logkeeper-rs0
+    cluster_type: replset
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+        clean_db_dir: false
+        use_journal_mnt: false
+  - cluster_type: standalone
+    # Secondary mongod instance, which is started empty dbdir, and with matching replSetName
+    public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+    private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+    use_journal_mnt: false
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  port: 27017
+  empty_node: ${mongodb_setup.topology.1.private_ip}
+  is_sharded: false
+  is_replset: true
+  mongodb_setup: initialsync-logkeeper

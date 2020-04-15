@@ -1,0 +1,139 @@
+# Input for test_controlt he test runner for the DSI framework
+
+task_name: core
+timeouts:
+  no_output_ms: 5400000  # The amount of time run cmds are allowed to go without any output before timing out
+
+# Note: unlike other files, this is a list of test runs. Hence, even if there's only a single entry,
+# it is a list.
+run:
+  - id: benchRun  # For some tests (such as YCSB), this is used as the testname when reporting results
+    type: mongoshell  # Or "ycsb"
+    cmd: $DSI_PATH/workloads/run_workloads.py -c workloads.yml
+    # This specifies the name of the configuration filename to upload onto the client host. The
+    # previous may need to call this file from a different directory if `cd` is called.
+    config_filename: workloads.yml  # The name used in previous row
+    # This is a list of files to be retrieved automatically from the workload client and placed in
+    # the reports directory upon completion of a run. This key is optional, if it is not present,
+    # nothing occurs.
+    # For CSV based results files (currently only linkbench), there can only be a single entry in `output_files`.
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:  # This section will be copied out into a file and given as config file or string (if the entry is a string) to the benchmark tool. Can be yml (run_workloads.py) or a text block (ycsb).
+      ########################################################################
+      # Test lists. Command line will indicate which list of tests to execute.
+      # The 'default' list is the default.
+      # When testing new test workloads, please put your tests in the
+      # tests.test list, and remove the existing hello
+      ########################################################################
+      tests:
+        default:
+          - contended_update
+          - map_reduce
+          - insert_vector:
+              # For clarity(?), thread_levels are in a lookup table further down.
+              # The following reference is recursive. The intermediate step resolves to something
+              # like: ${test_control.thread_levels.insert_vector.standalone.wiredTiger}
+              thread_levels: ${test_control.thread_levels.insert_vector.${mongodb_setup.meta.mongodb_setup}.${mongodb_setup.meta.storageEngine}}
+        initialsync:
+          - initialsync
+        correctness:
+          - election_timing
+          - election_timing_workload
+        test:  # Put new workloads here when testing
+          - hello:
+              parameter1: foo
+              parameter2: true
+
+      uri: mongodb://${mongodb_setup.meta.hosts}/testdb?readPreference=PRIMARY
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      # Passed to mongo shell (https://github.com/10gen/workloads/blob/23b1c6dd3a8c087b6a2c949147a8aeaba1d1d271/run_workloads.py#L289-L296)
+      # Required for mongoshell workloads when using SSL
+      shell_ssl_options: ['--ssl', '--sslAllowInvalidHostnames', '--sslCAFile', '${mongodb_setup.mongo_dir}/root.crt', '--sslPEMKeyFile', '${mongodb_setup.mongo_dir}/member.pem']
+
+    # Indicate that mongodb database validation checks should be skipped. Defaults to false.
+    skip_validate: false
+
+
+# This is just a lookup table. Each test may reference some leaf node here from a test parameter.
+thread_levels:
+  # Note: This is just an example for one test. Other tests have their own thread levels.
+  # It is of course possible that many tests share the same thread levels though, so this section
+  # can hopefully be shorter than a full cross join of everything.
+  insert_vector:
+    standalone:
+      mmapv1: [1, 2]
+      wiredTiger: [1, 8, 16]
+    single-replica:
+      mmapv1: [1, 2]
+      wiredTiger: [1, 8, 16]
+    replica:
+      mmapv1: [1, 2]
+      wiredTiger: [1, 8, 16]
+    shard:
+      mmapv1: [1, 32]
+      wiredTiger: [1, 32, 64]
+
+# Ordered list of things to do before the set of runs start
+pre_task:
+  # Valid targets are: on_workload_client, on_mongos, on_mongod, on_configsvr, on_all_hosts,
+  # on_all_servers, on_localhost.
+  # on_all_hosts includes all the hosts in the out file, while on_all_servers exclude the workload
+  # clients.
+  - on_workload_client:
+      # Valid within here are upload_repo_files, upload_files, retrieve_files, exec and
+      # exec_mongo_shell
+      upload_files:
+        # Upload file local_file_path to remote_file_path. Paths should include the file names (not
+        # just a target directory)
+        - source: local_file_path
+          target: remote_file_path
+      upload_repo_files:
+        # This is the same as upload_files, but looks for the files relative to DSI root
+        - source: local_file_path
+          target: remote_file_path
+  - on_workload_client:
+      exec: |
+  # Code to be executed on workload client (when MongoDB cluster is running)
+  - on_workload_client:
+      exec_mongo_shell:
+        script: |
+        # JavaScript to be executed in a mongo shell (when MongoDB cluster is running)
+        connection_string: ${mongodb_setup.meta.hosts}  # Defaults to localhost
+  - on_localhost:
+      # For documentation see $DSI_PATH/docs/config-specs/workload_setup.yml
+      checkout_repos:
+        - source: git@github.com:mongodb-labs/YSCB.git
+          target: ./YCSB
+          branch: 5742781
+
+# Ordered list of things to do after all the runs
+post_task:
+  - on_workload_client:
+      # All of the above, plus...
+      retrieve_files:
+        # Download remote path to ./reports/test_id/local path.
+        # test_id: <run[i]>.<id> from ConfigDict['test_control']['run'][i]['id'] where i is an
+        # integer within the range of the length of the list ConfigDict['test_control']['run'].
+        - source: remote_path
+          target: local_path
+
+# Ordered list of things to do before each test, after pre_task
+pre_test:
+  - on_mongos: (see above)
+  - on_mongod: (see above)
+  - on_configsvr: (see above)
+
+# Ordered list of things to do in between each test, starting after the first test
+between_tests:
+  # Skip the downloading of MongoDB binaries, just restart the cluster. Theoretically, this command
+  # can also be used anywhere in a pre_task, post_task, pre_test, or post_test key
+  - restart_mongodb:
+      clean_logs: true  # Do not keep the logs until the end of the task (clean them)
+      clean_db_dir: false  # Keep the data data until the end of the task
+
+# Ordered list of things to do after each test, before post_task
+post_test:
+  - on_mongod: (see above)
+  - on_all_hosts: (see above)

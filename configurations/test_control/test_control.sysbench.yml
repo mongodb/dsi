@@ -1,0 +1,105 @@
+task_name: sysbench
+
+sysbench:
+  opts: --csv-file=../../../sysbench.csv --percentile=99 --report-interval=1 --mongo-url='${mongodb_setup.meta.mongodb_url}&w=3'
+
+
+run:
+  - id: 1_coll_1M_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=1 --num-indexes=0 --num-docs=1000000 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: 1_coll_1M_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=10 --num-indexes=0 --num-docs=1000000 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+  - id: 100_coll_10k_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=100 --num-indexes=0 --num-docs=10000 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: 100_coll_10k_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=100 --num-indexes=0 --num-docs=10000 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+  - id: 1k_coll_1k_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=1000 --num-indexes=0 --num-docs=1000 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: 1k_coll_1k_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=1000 --num-indexes=0 --num-docs=1000 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+  - id: 10k_coll_100_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=10000 --num-indexes=0 --num-docs=100 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: 10k_coll_100_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=10000 --num-indexes=0 --num-docs=100 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+  - id: 100k_coll_10_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=100000 --num-indexes=0 --num-docs=10 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: 100k_coll_10_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=100000 --num-indexes=0 --num-docs=10 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+  - id: rerun_100k_coll_10_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=100000 --num-indexes=0 --num-docs=10 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: rerun_100k_coll_10_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=100000 --num-indexes=0 --num-docs=10 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+  - id: 1M_coll_1_docs_1_prepare
+    type: sysbench
+    # The sleep is due to no restart for Atlas clusters
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --parallel-prepare --events=11 --threads=1 --num-collections=1000000 --num-indexes=0 --num-docs=1 ${test_control.sysbench.opts} && sleep 120
+    output_files:
+      - sysbench.csv
+
+  - id: 1M_coll_1_docs_1
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./many_collections.lua run --time=180 --threads=1 --num-collections=1000000 --num-indexes=0 --num-docs=1 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+
+canaries: none
+
+# Don't delete dbdir between tests. We call sysbench cleanup where appropriate.
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false

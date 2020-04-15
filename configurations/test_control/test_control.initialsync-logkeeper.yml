@@ -1,0 +1,149 @@
+# The logkeeper tests use a snapshot of seeded data. Periodically, usually when a new major version becomes available,
+# the snapshot needs to be updated. The most common update that needs to be  performed relates to the feature
+# Compatibility Version.
+#
+# The following procedure is based on https://docs.google.com/document/d/14QXOmo-ia8w72pW5zqQ2fCWfXEwiVQ8_1EoMCkB4baY/,
+# it is assumed that you have run DSI locally once and have everything else (ssh keys etc.) configured correctly.
+#
+# The full instructions can be found in https://docs.google.com/document/d/1qMH1ekgnqm5LfVp7pXsHSoUqfobgStdzMKgbj5Codh0
+#
+# ALERT: The new snapshot should be created on aws-kernel-performance account. Else, the evergreen sys-perf cannot access
+# the newly created snapshot due to permission issues.
+#
+# Note: a shell command with a '$ ' prompt is run on your local host, commands on a remote host will
+# have a shell prompt like '[ec2-user@ip-10-2-0-190 ~]$ '.
+#
+# 1) create a bootstrap.yml with the following values set:
+#     mongodb_setup: initialsync-logkeeper
+#     storageEngine: wiredTiger
+#     test_control: initialsync-logkeeper
+#     task_name: initialsync-logkeeper
+#
+# Note: it may also be necessary to set 'bootstrap.overrides.mongodb_setup.mongodb_binary_archive'. For an FCV change, the current
+# default is most likely to work. For other changes, it may be necessary to get a mongod archive tarball from the
+# waterfall compilation task page.
+#
+# 2) On your local host, execute the following shell commands:
+#
+#  $ git clone git@github.com:10gen/dsi.git
+#  $ cd dsi
+#  $ dsi/bootstrap.py --directory WORK --bootstrap-file bootstrap.yml
+#  $ cd WORK
+#  $ source dsienv.sh
+#  $ sed 's/sudo fio --filename=/# sudo fio --filename=/'  ../clusters/remote-scripts/system-setup.sh -i.bak # disable the disk warmup or you may have to wait for over 4 hours
+#  $ infrastructure_provisioning.py
+#  $ mongodb_setup.py
+#  $ conn.py mongod.1
+#
+# 3) At this point, you should have an AWS command prompt. On the AWS host run the following commands:
+# *Note:* lines without a prompt display the expected output, but the exact details may vary in your output.
+#
+# [ec2-user@ip-10-2-0-190 ~]$ mongo --quiet --eval 'printjson(db.adminCommand({getParameter: 1, featureCompatibilityVersion: 1}))'
+# { "featureCompatibilityVersion" : { "version" : "3.6" }, "ok" : 1 }
+#
+# [ec2-user@ip-10-2-0-190 ~]$ mongo --eval 'printjson(db.adminCommand( { setFeatureCompatibilityVersion: '4.0' } ))'
+# { "ok" : 1 }
+#
+# [ec2-user@ip-10-2-0-190 ~]$ mongo --eval 'db.shutdownServer()'
+#
+# 4) At this point, you will have updated the FeatureCompatibilityVersion but the database will also contain a local
+# database (rs.intitiate() was called by mongodb_setup.py). Before creating a new snapshot, the local database
+# must be removed. This step can only be run when the mongod process is not started as a replica set member. This is
+# why the mongod command does not contain the '--replSet' flag.
+#
+# [ec2-user@ip-10-2-0-190 ~]$ mongo admin --eval 'db.shutdownServer ()'
+# [ec2-user@ip-10-2-0-190 ~]$ mongod --dbpath data/dbs --logpath data/logs/mongod.log --port 27017 --fork
+# [ec2-user@ip-10-2-0-190 ~]$ mongo --db local --eval 'db.dropDatabase()'
+# [ec2-user@ip-10-2-0-190 ~]$ mongo --eval 'db.shutdownServer()'
+# [ec2-user@ip-10-2-0-190 ~]$ echo "$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
+# 54.161.124.154
+#
+# 5) Note the ip address (it will be different for you) and disconnect from the AWS host. We will now create the
+# snapshot from your localhost
+#
+# $ aws ec2 describe-instances  --filters "Name=ip-address,Values=54.161.124.154"  --region us-east-1 --query 'Reservations[*].Instances[*].[InstanceId,BlockDeviceMappings]'  --output text
+# i-0e4446bd54b582f19
+# /dev/xvda
+# EBS	2018-03-13T17:14:21.000Z	True	attached	vol-048f323f57825b73e
+# /dev/sde
+# EBS	2018-03-13T17:14:21.000Z	True	attached	vol-0f7353dc40f2883b9
+#
+# $ aws ec2 describe-volumes --volume-ids vol-0f7353dc40f2883b9 vol-048f323f57825b73e  --region us-east-1 --query 'Volumes[*].[VolumeId,Size]'  --output text
+# vol-048f323f57825b73e	8
+# vol-0f7353dc40f2883b9	1024
+#
+# 6) From the previous list select the vol with a size of 1024 (vol-0f7353dc40f2883b9 in this case). Create the new
+# snapshot with the following command:
+#
+# $ aws ec2 create-snapshot --region us-east-1 --volume-id vol-0f7353dc40f2883b9  --description 'BF-XXXX: some descriptive text'  --query 'SnapshotId'  --output text
+# snap-<XXXXYYYY>
+#
+# 7) using the outputted snapshot id, update the AWS Name:
+#
+# $ aws ec2 create-tags --resources snap-XXXXYYYY --tags Key=Name,Value=initialsync_1tb   --region us-east-1
+#
+# 8) Finally, update the value of mongod_seeded_ebs_snapshot_id in infrastructure_provisioning.initialsync-logkeeper.yml.
+#
+# Note: The logkeeper-short test also uses pre-compressed data files (of a node that got restored from the snapshot of
+# seeded data) to load primary data. Periodically, usually when a new major version becomes available, the snapshot
+# and its corresponding compressed data files have to be updated. The most common update that needs to be  performed
+# relates to the Feature Compatibility Version.
+#
+# PLEASE update the below table once the new snapshot is created.
+# Logkeeper-short
+# -----------------------------------------------------------------------------------------------------------------------------------------------
+# |FCV |    Snapshot Id         |   Dataset Link                                                                                                |
+# |---------------------------------------------------------------------------------------------------------------------------------------------|
+# |4.4 | snap-0e1f89e6e069178f1 | https://s3-us-west-2.amazonaws.com/dsi-donot-remove/InitialSyncLogKeeper/logkeeper-slice-data-mongodb-4.4.tgz |
+# |4.0 | snap-09d40a2412085bc5a | https://s3-us-west-2.amazonaws.com/dsi-donot-remove/InitialSyncLogKeeper/logkeeper-slice-data.tgz             |
+# -----------------------------------------------------------------------------------------------------------------------------------------------
+# Logkeeper
+# -------------------------------
+# |FCV |    Snapshot Id         |
+# |-----------------------------|
+# |4.4 | snap-0b0b8b2ad16e8f14e |
+# |4.0 | snap-041c3c57a1a4f5bba |
+# |3.6 | snap-044cc4cf3f616ef5d |
+# |3.4 | snap-02f8fb5b88df90f13 |
+# -------------------------------
+#
+task_name: initialsync-logkeeper
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+post_test:
+  # Clean-up dbPath+'-tmp' directory that got created during rsync.
+  - on_mongod:
+      exec: |
+        host_addr=$(hostname -i)
+        if [ "$host_addr" == "${mongodb_setup.meta.empty_node}" ]
+        then
+           echo "Cleaning the temp data directory on " "$host_addr"
+           rm -rf "${mongodb_setup.mongod_config_file.storage.dbPath}-tmp"
+        fi
+run:
+  - id: benchRun
+    type: mongoshell
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          - large_initialsync:
+              primary_addr: ${mongodb_setup.meta.hostname}
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              sync_type: "initialSync"
+              start_mongod: ${infrastructure_provisioning.numactl_prefix} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+canaries: none
+
+# Disable jstest validations, it just takes too long to run it for this test.
+jstests_dir: ""

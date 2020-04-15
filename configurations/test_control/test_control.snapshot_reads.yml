@@ -1,0 +1,50 @@
+task_name: snapshot_reads
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          - snapshot_reads:
+              thread_levels: [1, 32, 64]
+              background_writes: false
+              background_currentOp: false
+              useSnapshotReads: true
+          - snapshot_reads:
+              thread_levels: [1, 32, 64]
+              background_writes: true
+              background_currentOp: false
+              useSnapshotReads: true
+          - snapshot_reads:
+              thread_levels: [1, 32, 64]
+              background_writes: false
+              background_currentOp: false
+              useSnapshotReads: false
+          - snapshot_reads:
+              thread_levels: [1, 32, 64]
+              background_writes: true
+              background_currentOp: false
+              useSnapshotReads: false
+          - snapshot_reads:
+              thread_levels: [1, 32, 64]
+              background_writes: false
+              background_currentOp: true
+              useSnapshotReads: true
+          - snapshot_reads:
+              thread_levels: [1, 32, 64]
+              background_writes: false
+              background_currentOp: true
+              useSnapshotReads: false
+
+      # These next five lines match existing workloads.yml.
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      # Hard coding for now. These aren't working right now
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}

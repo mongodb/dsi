@@ -1,0 +1,18 @@
+# Corresponds to python modules available in libanalysis/__init__.py.
+checks:
+  - log
+
+results_json:
+  path: report.json
+  # 'overwrite' or 'add'
+  # Use overwrite when analysis.py is the first analysis executable to run.
+  # This should be the typical case.
+  mode: 'overwrite'
+
+rules:
+  bad_log_types: ["F", "E"]  # See https://docs.mongodb.com/manual/reference/log-messages/
+  bad_messages:
+    # - starting an election
+    # - election succeeded
+    # - transition to primary
+    - posix_fallocate failed

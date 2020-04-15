@@ -1,0 +1,37 @@
+task_name: sysbench
+
+# One doc is 1097 bytes. 100k docs is 104MB. 1000 x 250k docs is 154GB
+# Normally we use 150GB to the oplog to make it really huge. The total disk size is 320 GB.
+# Since this test is designed to use lots of disk, we set oplog size to smaller from the test itself. Sorry for the inconsistency!
+sysbench:
+  opts: --csv-file=../../../sysbench.csv --percentile=99 --report-interval=1 --mongo-url='${mongodb_setup.meta.mongodb_url}' --num-collections=1000 --num-docs=150000 --set-oplog-size=50000
+
+
+run:
+  - id: large_scale_prepare
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./large_scale.lua run --parallel-prepare --threads=128 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+    skip_validate: true
+
+  - id: large_scale_crud
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./large_scale.lua run --threads=1000 --rate=200 --time=3600 --update-pct=10 --query-pct=90 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+    skip_validate: true
+
+  - id: large_scale_long
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./large_scale.lua run --threads=4 --time=3600 --long-queries=3 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+    skip_validate: true
+
+
+# Don't delete dbdir between tests. We call sysbench cleanup where appropriate.
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false

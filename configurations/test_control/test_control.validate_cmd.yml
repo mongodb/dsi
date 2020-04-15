@@ -1,0 +1,14 @@
+task_name: validate_cmd
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ValidateCmd
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/execution/ValidateCmd.yml
+
+pre_task:
+  - on_workload_client:
+      # Drop the database before each run
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_url}
+        script: |
+          db.dropDatabase();

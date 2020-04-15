@@ -1,0 +1,7 @@
+task_name: genny_canaries
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: genny_canaries
+    type: genny_canaries
+    skip_validate: true
+canaries: none

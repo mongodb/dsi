@@ -1,0 +1,6 @@
+task_name: genny_overhead
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: GennyOverhead
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/selftests/GennyOverhead.yml

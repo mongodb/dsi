@@ -1,0 +1,34 @@
+# Input for a bootstrap module, currently known as bootstrap.py. The bootstrap phase takes as
+# input a small number of parameters, which mostly happen to be our legacy parameters from the time
+# before using this "ConfigDict" configuration file system. Based on these bootstrap paremeters,
+# bootstrap.py will prepare a work directory that contains additional .yml configuration
+# files, terraform related files, etc. As an example, based on the cluster_type key, it will put
+# into place the related infrastructure_provisioning.yml file:
+#
+#     cp $DSI_PATH/configurations/infrastructure_provisioning/infrastructure_provisioning.cluster_type.yml infrastructure_provisioning.yml
+#
+# Note that the requirement that config files reside in the current directory applies also to
+# this file. Therefore usage can only be:
+#
+#     mkdir work
+#     cd work
+#     cp <path>/bootstrap.yml .
+#     cp <path>/runtime_secret.yml .
+#     $DSI_PATH/dsi/bootstrap.py
+
+infrastructure_provisioning: single
+platform: linux
+mongodb_setup: standalone
+storageEngine: wiredTiger
+test_control: benchRun
+production: false
+
+# Manual run helpers
+
+# These will be added to overrides.yml
+ssh_key_file: ~/.ssh/henrikingo-10gen-cap-oregon.pem
+ssh_key_name: henrik.ingo-10gen-cap-oregon
+owner: henrik.ingo
+# Copy mc and terraform from these locations instead of downloading
+mc: ~/local/bin/mc
+terraform: ~/local/terraform

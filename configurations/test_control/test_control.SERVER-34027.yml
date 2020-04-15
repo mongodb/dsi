@@ -1,0 +1,37 @@
+task_name: sysbench
+
+sysbench:
+  opts: --csv-file=../../../sysbench.csv --percentile=99 --report-interval=1 --mongo-url='${mongodb_setup.meta.mongodb_url}&w=majority'
+
+
+run:
+  - id: tcmalloc_prepare
+    type: sysbench
+    # 130000000 docs should be about 30 GB. Targeting at first i3.large which has 15 GB RAM, or i3.xlarge, 30 GB.
+    # 2600000000 docs was hundreds of GB, I didn't check it at the end.
+    # User in SERVER-34027 had 488 GB RAM.
+    # Note: This test produces a mongod.log which was about 300GB large. It takes hours to download at the end of the test.
+    # You may want to disable that, or increase the slowms to more than 100 ms.
+    cmd: |
+      cd benchmarks/sysbench/lua
+      ./tcmalloc_repro.lua cleanup ${test_control.sysbench.opts}
+      ./tcmalloc_repro.lua run --parallel_prepare --num-docs=2600000000 --threads=1024 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+    skip_validate: true
+
+  - id: tcmalloc_run
+    type: sysbench
+    # --time=10800 sec = 3 h
+    # --query-ts-range=2800 h = 117 days (hundreds of GB), 720 h = 30 days (30 GB I think)
+    cmd: cd benchmarks/sysbench/lua && ./tcmalloc_repro.lua run --threads=1600 --time=10800 --report-interval=1 --query-ts-range=2800 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+    skip_validate: true
+
+canaries: none
+
+between_tests:
+  - on_workload_client:
+      exec: |
+        echo "Skip mongodb restart for this test. Just continuing to stress the system right after load phase may even be beneficial."

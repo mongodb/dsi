@@ -1,0 +1,23 @@
+task_name: short
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: short
+    type: mongoshell
+    cmd: |
+      cd workloads
+      ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv  # ignored but parser requires it
+    workload_config:
+      tests:
+        default:  # Just does Hello World
+          - hello:
+              parameter1: foo
+              parameter2: true
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+canaries: none

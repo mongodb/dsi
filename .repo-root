@@ -1,0 +1,8 @@
+The contents of this file don't matter.
+This file indicates the "root" directory of the DSI repo.
+It is used by the `whereami` module.
+
+We *could* have relied on the .git directory, but the
+(possible future) existence of submodules or other VCSes
+makes that less pleasant.
+

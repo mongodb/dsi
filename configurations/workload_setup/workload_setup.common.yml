@@ -1,0 +1,269 @@
+genny: &compile_genny
+  - on_localhost:
+      checkout_repos:
+        - source: git@github.com:mongodb/genny.git
+          target: ${workload_setup.local_repos.genny}
+          branch: master
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.genny}
+          target: ./data/genny
+        - source: ${runtime.workdir}/work/expansions.yml
+          target: ./data/expansions.yml
+  # System Setup
+  - on_workload_client:
+      exec: |
+        set -eu
+        # Specifically not using pipefail here.
+        # You can't use pipefail with head, as the tar will get a pipefail. We use head in a
+        # pipeline below.  https://news.ycombinator.com/item?id=9255830
+
+        # Clean up any build artifacts that were copied up with the repo
+        rm -rf ./data/genny/build/*
+        mkdir -p data/tmp; pushd data/tmp
+        if [[ "${infrastructure_provisioning.tfvars.image}" == "centos7" ]]; then
+          # Install the toolchain
+          mkdir -p ~/data/mongodbtoolchain
+          # Use /data directory for storage and speed
+          ln -s /data/mongodbtoolchain /opt/mongodbtoolchain || true
+          curl -o mongodbtoolchain.tar.gz --retry 10 -L http://mongodbtoolchain.build.10gen.cc/toolchain/rhel70/x86_64/latest
+          mkdir -p /opt/mongodbtoolchain/revisions
+          REVISION=$(tar --list -f mongodbtoolchain.tar.gz | head -1 | sed 's/\/$//')
+          tar -C /opt/mongodbtoolchain/revisions -xzvf mongodbtoolchain.tar.gz "$REVISION"
+          /opt/mongodbtoolchain/revisions/"$REVISION"/scripts/install.sh
+          sudo yum install -y libicu > ./yum-install-libicu.log 2>&1
+        else
+        # https://aws.amazon.com/premiumsupport/knowledge-center/ec2-enable-epel/
+          sudo yum install -y https://s3-us-west-2.amazonaws.com/dsi-donot-remove/genny/epel-release-latest-7.noarch.rpm  || true > ./yum-epel-repo.log 2>&1
+          sudo yum-config-manager --enable epel > ./yum-epel.log 2>&1
+          sudo yum install -y gcc gcc-c++ python3 python37 python3-pip python37-pip > ./yum-install.log 2>&1
+        fi
+        popd || exit 1
+  # Get Genny's distribution
+  - on_workload_client:
+      exec: |
+        set -eou pipefail
+
+        # Double check that the directories are all there.
+        sudo mkdir -p /data/mci
+        sudo mkdir -p ./data/mci
+        if [[ "${infrastructure_provisioning.tfvars.image}" == "centos7" ]]; then
+          distro="rhel70";
+        else
+          distro="amazon2";
+        fi
+        cd ./data/genny
+        ./scripts/lamp --linux-distro $distro -DGENNY_INSTALL_DIR="$PWD/dist"
+
+  # Make sure the genny executable is reasonable
+  - on_workload_client:
+      exec: |
+        set -eou pipefail
+
+        cd ./data/genny
+
+        ldd dist/bin/genny_core
+        ./scripts/genny list-actors
+
+  # Build Genny's Python Component
+  - on_workload_client:
+      exec: |
+        cd ./data/genny/src/python || exit 1
+        if [[ -e /opt/mongodbtoolchain/v3/bin/ ]]; then
+          PATH=/opt/mongodbtoolchain/v3/bin/:$PATH
+        fi
+        sudo -E env "PATH=$PATH" pip3 install .
+
+genny_canaries: *compile_genny
+
+
+mongoshell: &mongoshell
+  - on_localhost:
+      checkout_repos:
+        - source: git@github.com:10gen/workloads.git
+          target: ${workload_setup.local_repos.workloads}
+  - on_workload_client:
+      exec: rm -rf workloads*
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.workloads}
+          target: ./workloads
+  - on_workload_client:
+      exec: |
+        sudo pip install argparse python-dateutil pytz
+        # Because run_workloads.py cannot be executed in home directory, we provide access to ~/mongodb via symlink.
+        # This is used if SSL is on, because certificates are there.
+        # Note: The following line only works if mongo_dir does not contain a '/'.
+        # See https://jira.mongodb.org/browse/TIG-1749
+        cd workloads && ln -s "../${mongodb_setup.mongo_dir}" "${mongodb_setup.mongo_dir}"
+
+cpu_noise: *mongoshell
+
+fio:
+  - on_workload_client:
+      exec: |
+        sudo yum -y -q install fio
+      upload_repo_files:
+        - source: dsi/fio-test.sh
+          target: fio-test.sh
+
+
+iperf:
+  - on_all_hosts:
+      # Install iperf3. It isn't available in yum on AWS instances
+      # TODO: On Amazon2 this could probably be installed from yum, but I didn't try to change it in this commit.
+      exec: |
+        mkdir -p data/tmp; pushd data/tmp || exit 1
+        sudo yum groupinstall -y --quiet "Development tools"
+        sudo yum install -y --quiet zlib-devel
+        sudo yum install -y --quiet pmisc
+        sudo pkill -15 iperf3
+        rm -rf iperf
+        git clone --quiet https://github.com/esnet/iperf
+        cd iperf/ || exit 1
+        git checkout --quiet d06415822a
+        ./configure --quiet > ./iperf-config.log
+        make --quiet > ./iperf-make.log
+        sudo make install > ./iperf-install.log
+        popd || exit 1
+
+      upload_repo_files:
+        - source: dsi/iperf-test.sh
+          target: iperf-test.sh
+
+tpcc:
+  - on_localhost:
+      checkout_repos:
+        - source: git@github.com:10gen/py-tpcc.git
+          target: ${workload_setup.local_repos.tpcc}
+          branch: 52185e96bf28be6608ea65b61ff1d134b7cb3f13
+  - on_workload_client:
+      exec: rm -rf tpcc*
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.tpcc}
+          target: ./tpcc
+  - on_workload_client:
+      exec: |
+        python -m pip install pymongo==3.7.2 --user
+
+linkbench:
+  - on_workload_client:
+      exec: |
+        mkdir -p data/tmp; pushd data/tmp || exit 1
+        curl --retry 10 http://mirror.cc.columbia.edu/pub/software/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz | sudo tar zx -C /usr/local
+        cd /usr/local || exit 1
+        sudo ln -s apache-maven-* maven
+        echo 'export M2_HOME=/usr/local/maven' | sudo tee -a /etc/profile.d/maven.sh
+        echo 'export PATH=$M2_HOME/bin:$PATH' | sudo tee -a /etc/profile.d/maven.sh
+        rm *.rpm || true
+        popd || exit 1
+
+# TODO: EVG-3317  modules can only track branches at the moment
+# but master ==  f9cca9bcc2c45a409d34584dad49a095d7efccef. If we need to track
+# a specific commit then this code will need to be placed back.
+  - on_localhost:
+      checkout_repos:
+        - source: git@github.com:10gen/linkbench.git
+          target: ${workload_setup.local_repos.linkbench}
+          #          branch: f9cca9bcc2c45a409d34584dad49a095d7efccef
+  - on_workload_client:
+      exec: rm -rf linkbench*
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.linkbench}
+          target: ./linkbench
+  - on_workload_client:
+      exec: |
+        export JAVA_HOME="/usr/java/jdk1.8.0_162/jre"
+        source /etc/profile.d/maven.sh && cd ~/linkbench || exit 1
+        mvn --quiet clean package -DskipTests
+
+# This is the same as linkbench above except for the Linkbench github repo
+linkbench2:
+  - on_workload_client:
+      exec: |
+        mkdir -p data/tmp; pushd data/tmp || exit 1
+        curl --retry 10 http://mirror.cc.columbia.edu/pub/software/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz | sudo tar zx -C /usr/local
+        cd /usr/local || exit 1
+        sudo ln -s apache-maven-* maven
+        echo 'export M2_HOME=/usr/local/maven' | sudo tee -a /etc/profile.d/maven.sh
+        echo 'export PATH=$M2_HOME/bin:$PATH' | sudo tee -a /etc/profile.d/maven.sh
+        rm *.rpm || true
+        popd || exit 1
+
+  - on_localhost:
+      # Note that git clone path is different for linkbench and linkbench2.
+      # This allows you to have both checked out on your workstation, and in fact sys-perf always checks out all repositories even if not used.
+      checkout_repos:
+        - source: git@github.com:mdcallag/linkbench.git
+          target: ${workload_setup.local_repos.linkbench2}
+          branch: 63207190657737b32eb0e81c5b81ad1b8bad0e5a
+  - on_workload_client:
+      # From here on, on the workload_client, paths are the same for linkbench and linkbench2.
+      # This means you could not mix both of them into same test_control.yml file.
+      exec: rm -rf linkbench*
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.linkbench2}
+          target: ./linkbench
+  - on_workload_client:
+      exec: |
+        export JAVA_HOME="/usr/java/jdk1.8.0_162/jre"
+        source /etc/profile.d/maven.sh && cd ~/linkbench || exit 1
+        mvn --quiet clean package -DskipTests
+
+ycsb:
+  - on_localhost:
+      exec: |
+        ${workload_setup.install_curator}
+  - on_workload_client:
+      exec: |
+        mkdir -p data/tmp; pushd data/tmp || exit 1
+        curl --retry 10 http://mirror.cc.columbia.edu/pub/software/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz | sudo tar zx -C /usr/local
+        cd /usr/local || exit 1
+        sudo ln -s apache-maven-* maven
+        echo 'export M2_HOME=/usr/local/maven' | sudo tee -a /etc/profile.d/maven.sh
+        echo 'export PATH=$M2_HOME/bin:$PATH' | sudo tee -a /etc/profile.d/maven.sh
+        rm *.rpm || true
+        popd || exit 1
+  - on_localhost:
+      checkout_repos:
+        - source: git@github.com:mongodb-labs/YCSB.git
+          target: ${workload_setup.local_repos.ycsb}
+          branch: 9e7888c5009e44a185b135104dd8456eea1deb1e
+  - on_workload_client:
+      exec: rm -rf ycsb*
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.ycsb}
+          target: ./YCSB
+  - on_workload_client:
+      exec: |
+        export JAVA_HOME="/usr/java/jdk1.8.0_162/jre"
+        source /etc/profile.d/maven.sh && cd ~/YCSB/ycsb-mongodb && mvn -Dmongo.version=3.8.1 --quiet clean package
+
+sysbench:
+  - on_localhost:
+      checkout_repos:
+        - source: git@github.com:mongodb-labs/benchmarks.git
+          target: ${workload_setup.local_repos.benchmarks}
+  - on_workload_client:
+      upload_files:
+        - source: ${workload_setup.local_repos.benchmarks}
+          target: ./benchmarks
+  - on_workload_client:
+      exec: |
+        sudo yum -y groupinstall "Development tools"
+        ./benchmarks/sysbench/install.sh
+
+
+# Only install curator for production runs
+# == "True" because production gets serialized as a Python boolean
+install_curator: |
+  if [[ "${bootstrap.production}" == "True" ]]; then
+    curl -o curator.tar.gz --retry 10 -LsS "${workload_setup.downloads.curator}"
+    tar xvf curator.tar.gz
+    ./curator --version
+  fi
+

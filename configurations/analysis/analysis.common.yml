@@ -1,0 +1,84 @@
+# Corresponds to python modules available in libanalysis/__init__.py.
+checks:
+  - exit
+  - core
+  - log
+  - ftdc
+  - db_correctness
+  # Note: Even if this runs every time and scans all directories in reports/, it will be a no-op
+  # for non-YCSB tests when it doesn't find the YCSB stdout output it looks for.
+  #
+  # Disabled as it was failing for ycsb_60GB and industry_benchmarks_wmajority.
+  # Once there is a mechanism to configure this on a per task basis, we can re-enable for other
+  # checks.
+  # - ycsb_throughput
+
+results_json:
+  path: report.json
+  # 'overwrite' or 'add'
+  # Use overwrite when analysis.py is the first analysis executable to run.
+  # This should be the typical case.
+  mode: 'overwrite'
+
+# Siri, what is a lift and shift migration?
+#
+# Below configs are the same that used to be python constants in DSI 1.0 analysis.
+# I just extracted them here but didn't change structure for now. As follow-up work, variant
+# specific configs should move to their mongodb_setup.yml files and picked up from there.
+rules:
+  constants:
+    replica-2node:
+      # from Judah: initial sync uses 16 threads to put data into the database
+      max_thread_level: 32.0
+
+  resource_rules_ftdc_file:
+    # Disabled for PERF-1084. To be re-enabled after BF-5815 is resolved
+    # default:
+    #   - ftdc_replica_lag_check
+    default: []
+    replica-2node:
+      - repl_member_state_initial_sync
+
+  # rules run for every variant
+  common:
+    - below_configured_cache_size
+    - below_configured_oplog_size
+
+  resource_rules_ftdc_chunk:
+    default:
+      - below_configured_cache_size
+      - below_configured_oplog_size
+      - max_connections  # rule not run for 3-shard or shard-lite
+      - repl_member_state  # rule not run for initialsync
+    single-replica-fle:
+      - below_configured_cache_size
+      - below_configured_oplog_size
+      - repl_member_state
+    shard:
+      - below_configured_cache_size
+      - below_configured_oplog_size
+      - repl_member_state
+    shard-lite:
+      - below_configured_cache_size
+      - below_configured_oplog_size
+      - repl_member_state
+    replica-2node:
+      - below_configured_cache_size
+      - below_configured_oplog_size
+      - max_connections
+
+  bad_log_types: ["F", "E"]  # See https://docs.mongodb.com/manual/reference/log-messages/
+  bad_messages:
+    - starting an election
+    - election succeeded
+    - transition to primary
+    - posix_fallocate failed
+  # As discussed, new rules are subject to a quarantine period irrespective of project/variant/etc.
+  # The report.json `test_file` regex value of these checks are listed here; will not increment the
+  # number of failures in the report for tests specified in this variable.
+  quarantined_rules:
+    - mongod\.log\.([0-9])+
+    - resource_sanity_checks
+    - ycsb-throughput-analysis
+    - db-hash-check
+    - validate-indexes-and-collections

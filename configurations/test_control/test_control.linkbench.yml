@@ -1,0 +1,225 @@
+task_name: linkbench
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+# Number of nodes to generate. 10e6 ids is approx 7.5gb of data
+linkbench_maxid1: 10000001
+run:
+  - id: linkbench_load
+    type: linkbench
+    # the 2>&1 redirects stderr to stdout. This is necessary because
+    # linkbench reports status to stderr not stdout, and dsi infrastructure
+    # will timeout commands that don't produce stdout output after 90 minutes
+    cmd: |
+      cd linkbench
+      ./bin/linkbench \
+        -c ../mongo_linkbench_config.properties \
+        -csvstats "../load-phase-stats.csv" \
+        -l \
+        2>&1
+    output_files:
+      - load-phase-stats.csv
+    config_filename: mongo_linkbench_config.properties
+    # see PR#31 for some context on these numbers
+    # the url is set to a connection to mongos if in a sharded cluster, otherwise it is set
+    # to a connection to a replica set. Until the java driver supports pinning mongos (JAVA-3069),
+    # set to a connection to a specific mongos. Once this is done, this can be changed to
+    # `${mongodb_setup.meta.mongodb_url}`.
+    workload_config: &linkbench_config |
+      url=${test_control.url.${mongodb_setup.meta.is_sharded}}
+      fle_enable=${mongodb_setup.meta.is_fle}
+      data_file = config/Distribution.dat
+      startid1 = 1
+      maxid1 = ${test_control.linkbench_maxid1}
+      maxtime = 600
+      link_type_count = 2
+      nlinks_func = real
+      link_datasize = 23
+      link_add_datagen = com.facebook.LinkBench.generators.MotifDataGenerator
+      link_add_datagen_startbyte = 32
+      link_add_datagen_endbyte = 100
+      link_add_datagen_uniqueness = 0.225
+      link_add_datagen_motif_length = 128
+      link_up_datagen = com.facebook.LinkBench.generators.MotifDataGenerator
+      link_up_datagen_startbyte = 32
+      link_up_datagen_endbyte = 100
+      link_up_datagen_uniqueness = 0.225
+      link_up_datagen_motif_length = 128
+      node_datasize = 168
+      node_add_datagen = com.facebook.LinkBench.generators.MotifDataGenerator
+      node_add_datagen_startbyte = 50
+      node_add_datagen_endbyte = 220
+      node_add_datagen_uniqueness = 0.63
+      node_up_datagen = com.facebook.LinkBench.generators.MotifDataGenerator
+      node_up_datagen_startbyte = 50
+      node_up_datagen_endbyte = 220
+      node_up_datagen_uniqueness = 0.63
+      id2gen_config = 0
+      addlink = 5.35038
+      deletelink = 0.98401
+      updatelink = 4.75589
+      countlink = 4.27898
+      getlink = 12.14725
+      getlinklist = 22.57039
+      getnode = 43.9869
+      addnode = 2.61198
+      updatenode = 3.06256
+      deletenode = 0.25166
+      getlinklist_history = 0.3
+      read_function = com.facebook.LinkBench.distributions.ZipfDistribution
+      read_shape = 0.8
+      read_uncorr_blend = 99.5
+      read_uncorr_function = com.facebook.LinkBench.distributions.ZipfDistribution
+      read_uncorr_shape = 0.8
+      write_function = com.facebook.LinkBench.distributions.ZipfDistribution
+      write_shape = 0.741
+      write_uncorr_blend = 95
+      write_uncorr_shape = 0.741
+      write_uncorr_config = 1
+      node_read_function = com.facebook.LinkBench.distributions.ZipfDistribution
+      node_read_shape = 0.625
+      node_update_function = com.facebook.LinkBench.distributions.ZipfDistribution
+      node_update_shape = 0.606
+      node_delete_function = com.facebook.LinkBench.distributions.UniformDistribution
+      link_multiget_dist = com.facebook.LinkBench.distributions.GeometricDistribution
+      link_multiget_dist_min = 1
+      link_multiget_dist_max = 128
+      link_multiget_dist_prob = 0.382
+      linkstore = com.facebook.LinkBench.LinkStoreMongoDb
+      nodestore = com.facebook.LinkBench.LinkStoreMongoDb
+      user = linkbench
+      password = linkbench
+      port = 27017
+      dbprefix = linkdb
+      dbcount = 1
+      dbload =
+      linktable = linktable
+      counttable = counttable
+      nodetable = nodetable
+      debuglevel = INFO
+      progressfreq = 300
+      displayfreq = 1800
+      load_progress_interval = 50000
+      req_progress_interval = 10000
+      maxsamples = 10000
+      loaders = 20
+      generate_nodes = true
+      loader_chunk_size = 2048
+      requesters = 20
+      # some arbitrarily large number since we want to run for a fixed amount of time
+      requests = 5000000000
+      requestrate = 0
+      warmup_time = 60
+      max_failed_requests = 100
+      load_random_seed = 314159265
+      request_random_seed = 299792458
+
+  - id: linkbench_request
+    type: linkbench
+    # see note in linkbench_load ↑ on the 2>&1 bits here
+    cmd: |
+      cd linkbench
+      ./bin/linkbench \
+        -c ../mongo_linkbench_config.properties \
+        -csvstats "../request-phase-stats.csv" \
+        -r \
+        2>&1
+    output_files:
+      - request-phase-stats.csv
+    config_filename: mongo_linkbench_config.properties
+    workload_config: *linkbench_config
+
+pre_task:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_shell_url}
+        script: |
+          db = db.getSiblingDB('linkdb0');
+
+          db.linktable.drop();
+          db.nodetable.drop();
+          db.counttable.drop();
+
+          db.createCollection("linktable");
+          db.createCollection("nodetable");
+          db.createCollection("counttable");
+
+          // TODO: SERVER-32442 Change the indexes if / when this ticket is implemented.
+          db.linktable.createIndex({id1: 1, link_type: 1, id2: 1});
+          db.linktable.createIndex({id1: 1, link_type: 1, time: 1, visibility: 1});
+
+          db.counttable.createIndex({id: 1, link_type: 1});
+
+          db.nodetable.createIndex({id: 1}, {unique: true});
+
+          // chunks across the shards.
+          // If we're running in a sharded cluster, shard the collections and spread
+          if ("${mongodb_setup.meta.is_sharded}" == "True") {
+            assert.commandWorked(sh.enableSharding('linkdb0'));
+
+            const config = db.getSiblingDB("config");
+            const shards = config.shards.find({}).toArray();
+
+            // Make sure that there are only two shards. This is currently inflexible due
+            // to the zone tagging system below.
+            assert.eq(shards.length, 2);
+
+            // Add a tag to each shard so that we can partition data across the two shards.
+            sh.addShardTag(shards[0]._id, 'a');
+            sh.addShardTag(shards[1]._id, 'b');
+
+            // Partition data in all collections across shards by node id. We choose the
+            // median node id based on the maxid1 parameter specified above. This will ensure that
+            // data will be spread across both shards without relying on the balancer to run.
+
+            // Find the midpoint of the range of node ids. Relies on there being 2 shards.
+            const id1Median = Math.floor(${test_control.linkbench_maxid1}/shards.length);
+
+            // Add ranges to the linktable collection.
+            assert.commandWorked(sh.addTagRange('linkdb0.linktable',
+                {id1: 0, link_type: MinKey, id2: MinKey},
+                {id1: id1Median, link_type: MinKey, id2: MinKey}, 'a'));
+            assert.commandWorked(sh.addTagRange('linkdb0.linktable',
+                {id1: id1Median, link_type: MinKey, id2: MinKey},
+                {id1: MaxKey, link_type: MinKey, id2: MinKey}, 'b'));
+
+            // Add ranges to the counttable collection.
+            assert.commandWorked(sh.addTagRange('linkdb0.counttable',
+                {id: 0, link_type: MinKey},
+                {id: id1Median, link_type: MinKey}, 'a'));
+            assert.commandWorked(sh.addTagRange('linkdb0.counttable',
+                {id: id1Median, link_type: MinKey},
+                {id: MaxKey, link_type: MinKey}, 'b'));
+
+            // Add ranges to the nodetable collection.
+            assert.commandWorked(sh.addTagRange('linkdb0.nodetable',
+                {id: 0},
+                {id: id1Median}, 'a'));
+            assert.commandWorked(sh.addTagRange('linkdb0.nodetable',
+                {id: id1Median},
+                {id: MaxKey}, 'b'));
+
+            // Shard all collections.
+            assert.commandWorked(sh.shardCollection('linkdb0.linktable', {id1: 1, link_type: 1, id2: 1}));
+            assert.commandWorked(sh.shardCollection('linkdb0.counttable', {id: 1, link_type: 1}));
+            assert.commandWorked(sh.shardCollection('linkdb0.nodetable', {id: 1}));
+
+            db.printShardingStatus();
+          } else {
+            print ("Non-sharded cluster");
+          }
+
+  - on_workload_client:
+      exec: ${test_control.start_mongo_cryptd}
+
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false
+
+# URL to use based on whether the test is sharded or not and used above.
+# the url is set to a connection to mongos if in a sharded cluster, otherwise it is set
+# to a connection to a replica set. Until the java driver supports pinning mongos (JAVA-3069),
+# set to a connection to a specific mongos. Once this is done, this can be changed to
+# `${mongodb_setup.meta.mongodb_url}`.
+url:
+  "False": "${mongodb_setup.meta.mongodb_url}&retryWrites=true"
+  "True": "mongodb://${mongodb_setup.meta.hostname}/test?retryWrites=true"

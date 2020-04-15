@@ -1,0 +1,14 @@
+port: 27017
+replica: true
+sharded: false
+storageEngine: wiredTiger
+target: 10.2.0.100
+tests:
+  default: [contended_update, map_reduce, insert_capped, insert_ttl, insert_capped_indexes,
+    insert_vector, word_count, jtrue, move_chunk, mongos_read_single,
+    mongos_insert_vector, mongos_insert_single, mongos_50read_50write, move_chunk_with_load]
+  short:
+  - hello:
+      parameter1: foo
+      parameter2: [true, false]
+  test: [null]

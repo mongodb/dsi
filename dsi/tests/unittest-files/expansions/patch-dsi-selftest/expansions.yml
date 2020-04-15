@@ -1,0 +1,45 @@
+alias: ''
+authentication: enabled
+author: ryan.timmons
+aws_key: AKIAIAZPEY7FEV73BTOQ
+aws_secret: PB_FAKE_VALUE_nO
+branch_name: master
+build_id: dsi_sys_perf_integration_test_patch_f264899c136167d53ae4af171f287f6a5023af7a_5e73bd0b2a60ed78fb75f0f0_20_03_19_18_42_28
+build_variant: sys-perf-integration-test
+cluster: single
+created_at: '20_03_19_18_42_28'
+decompress: tar zxvf
+distro_id: rhel70-perf-single
+# TODO: add these to DSI's project config
+dsi_analysis_atlas_pw: Kw_FAKE_VALUE_uX
+dsi_analysis_atlas_user: dsi_analysis
+ec2_pem: --_FAKE_VALUE_--
+evergreen_api_key: 1e_FAKE_VALUE_04
+evergreen_api_user: Xgen-BuildBaron-User
+evergreen_token: 702a504f90b87ab225f0f726191282b6
+execution: '0'
+genny_rev: 2314cf6059a42533b9f2a4ec94fd950b6f53fa4e
+github_token: token 88_FAKE_VALUE_5a
+global_github_oauth_token: ef_FAKE_VALUE_93
+is_patch: 'true'
+kill_pid: kill -- -$(ps opgid= %v)
+mongodb_binary_archive: "https://s3.amazonaws.com/some-long-url.tar.gz"
+perf_jira_pw: og_FAKE_VALUE_ep
+perf_jira_user: mongo-perf-user
+platform: linux
+project: dsi
+project_dir: dsi
+project_tags: ''
+ps: ps aux
+revision: f264899c136167d53ae4af171f287f6a5023af7a
+revision_order_id: ryan.timmons_745
+scons_prune_ratio: '0.8'
+setup: standalone
+storageEngine: wiredTiger
+task_id: dsi_sys_perf_integration_test_smoke_test_patch_f264899c136167d53ae4af171f287f6a5023af7a_5e73bd0b2a60ed78fb75f0f0_20_03_19_18_42_28
+task_name: smoke_test
+terraform_key: AKIAIVLNQFIAXGACN47A
+terraform_secret: ia_FAKE_VALUE_LR
+test: short
+version_id: 5e73bd0b2a60ed78fb75f0f0
+workdir: /data/mci/3270e68fa88d51b18a00553633e203d9

@@ -1,0 +1,51 @@
+task_name: misc_workloads
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          - contended_update:
+              thread_levels: [1, 32, 64]
+          - insert_ttl:
+              thread_levels: [1, 16, 32]
+          - insert_vector:
+              thread_levels: ${test_control.thread_levels.insert_vector.${mongodb_setup.meta.mongodb_setup}.${mongodb_setup.meta.storageEngine}}
+          - index_build:
+              build_in_background: false
+          - update_large_documents:
+              doc_counts: [2]
+              doc_sizes_mb: [10]
+              thread_levels: [1]
+              runtime_secs: [180]
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+# This is just a lookup table. Each test may reference some leaf node here from a test parameter.
+thread_levels:
+  insert_vector:
+    standalone:
+      mmapv1: [1, 4]
+      wiredTiger: [1, 8, 16]
+    single-replica:
+      mmapv1: [1, 4]
+      wiredTiger: [1, 8, 16]
+    replica:
+      mmapv1: [1, 4]
+      wiredTiger: [1, 8, 16]
+    atlas-like-replica:
+      wiredTiger: [1, 8, 16]
+    shard:
+      mmapv1: [1, 32]
+      wiredTiger: [1, 32, 64]
+  crud-jfalse:
+    mmapv1: [1, 4]
+    wiredTiger: [1, 16, 32]

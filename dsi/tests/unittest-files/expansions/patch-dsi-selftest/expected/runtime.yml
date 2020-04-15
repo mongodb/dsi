@@ -1,0 +1,16 @@
+branch_name: master
+build_id: dsi_sys_perf_integration_test_patch_f264899c136167d53ae4af171f287f6a5023af7a_5e73bd0b2a60ed78fb75f0f0_20_03_19_18_42_28
+build_variant: sys-perf-integration-test
+execution: 0
+ext: null
+genny_rev: 2314cf6059a42533b9f2a4ec94fd950b6f53fa4e
+is_patch: true
+order: ryan.timmons_745
+project: dsi
+project_dir: dsi
+revision: f264899c136167d53ae4af171f287f6a5023af7a
+script_flags: null
+task_id: dsi_sys_perf_integration_test_smoke_test_patch_f264899c136167d53ae4af171f287f6a5023af7a_5e73bd0b2a60ed78fb75f0f0_20_03_19_18_42_28
+task_name: smoke_test
+version_id: 5e73bd0b2a60ed78fb75f0f0
+workdir: /data/mci/3270e68fa88d51b18a00553633e203d9

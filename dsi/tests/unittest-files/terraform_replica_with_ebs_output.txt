@@ -1,0 +1,7 @@
+private_member_ip = 10.2.0.100 10.2.0.101 10.2.0.200 10.2.0.201
+private_mongod_ebs_ip = 10.2.0.200 10.2.0.201
+private_ip_mc = 10.2.0.10
+public_ip_mc = 52.33.30.1
+public_member_ip = 52.41.40.0 52.37.52.162 52.25.102.16 52.25.102.17
+public_mongod_ebs_ip = 52.25.102.16 52.25.102.17
+total_count = 2

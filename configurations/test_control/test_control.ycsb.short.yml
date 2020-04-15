@@ -1,0 +1,37 @@
+task_name: ycsb.short
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ycsb_load
+    type: ycsb
+    cmd: cd YCSB/ycsb-mongodb; ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb load mongodb -s -P ../../workloadShort -threads 32
+    config_filename: workloadShort
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}
+      recordcount=2500000
+      operationcount=3000000
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.5
+      updateproportion=0.5
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+
+  - id: ycsb_50read50update
+    type: ycsb
+    cmd: cd YCSB/ycsb-mongodb; ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s -P ../../workloadShort -threads 64
+
+canaries: none
+
+pre_task:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_shell_url}
+        # Shard the YCSB cluster if sharding is enabled
+        script: ${test_control.ycsb_sharding_script}
+
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false
+

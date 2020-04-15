@@ -1,0 +1,5 @@
+2016-08-03T15:04:55.395-0400 E QUERY    [thread1] Error: Collection validation failed :
+@(shell eval):1:20
+@(shell eval):1:2
+
+Failed to run JS test on server [localhost], host [localhost]

@@ -1,0 +1,595 @@
+# Defaults for all config values used by Distributed Performance 2.0 modules.
+
+bootstrap:
+  infrastructure_provisioning: single
+  platform: linux
+  mongodb_setup: standalone
+  workload_setup: common
+  analysis: common
+  storageEngine: wiredTiger
+  test_control: core
+  production: false
+
+runtime_secret:
+  # While the user is now available as an Evergreen expansion, older builds will fail when it is
+  # missing from system_perf.yml. Thus, we must store it here as a default value.
+  dsi_analysis_atlas_user: dsi_analysis
+
+infrastructure_provisioning:
+  # Write hostnames to /etc/hosts on deployed hosts. (Uses private ip:s when available.)
+  hostnames:
+    # Supported methods: /etc/hosts and null
+    method: /etc/hosts
+    domain: dsitest.dev
+  # Terraform variables
+  tfvars:
+    cluster_name: default_cluster_name
+    mongod_instance_count: 1
+    workload_instance_count: 1
+
+    mongod_instance_type: c3.8xlarge
+    workload_instance_type: c3.8xlarge
+
+    image: amazon2
+    region: us-west-2
+    availability_zone: us-west-2a
+
+    ssh_user: ec2-user
+    ssh_key_name: serverteam-perf-ssh-key
+    ssh_key_file: aws_ssh_key.pem
+
+    tags:
+      expire-on-delta: 2     # adjust expire_on to now + expire-on-delta hours
+      owner: perf-terraform-alerts@10gen.com
+  numactl_prefix: numactl --interleave=all --cpunodebind=1
+  terraform:
+    required_version: Terraform v0.12.16
+    aws_required_version: 2.40.0
+    linux_download: https://releases.hashicorp.com/terraform/0.12.16/terraform_0.12.16_linux_amd64.zip
+    mac_download: https://releases.hashicorp.com/terraform/0.12.16/terraform_0.12.16_darwin_amd64.zip
+
+  # Known disks in the system. This list is a superset. String list for use below
+  disks: "/dev/xvdc /dev/xvdd /dev/xvde /dev/xvdf /dev/nvme0n1 /dev/nvme1n1 /dev/nvme2n1 /dev/nvme0n1"
+  read_ahead: 32
+  post_provisioning_steps:
+    # This is a dict of steps you might want to use. This is not used directly.
+    set_readahead:
+      exec: |
+        # Set readahead: https://docs.mongodb.com/manual/administration/production-notes/#recommended-configuration
+        # (noatime is set when mounting.)
+        for disk in ${infrastructure_provisioning.disks}; do
+          if [[ -e $disk ]]; then
+            sudo blockdev --setra "${infrastructure_provisioning.read_ahead}" "$disk";
+          fi;
+        done;
+    set_ulimits:
+      exec: |
+        # set ulimit nofile for user
+        echo "${infrastructure_provisioning.tfvars.ssh_user}           soft    nofile          65535" | sudo tee -a /etc/security/limits.conf > /dev/null
+        echo "${infrastructure_provisioning.tfvars.ssh_user}           hard    nofile          65535" | sudo tee -a /etc/security/limits.conf > /dev/null
+        echo "${infrastructure_provisioning.tfvars.ssh_user}   soft   core   unlimited" | sudo tee -a /etc/security/limits.conf > /dev/null
+        echo "${infrastructure_provisioning.tfvars.ssh_user}   hard   core   unlimited" | sudo tee -a /etc/security/limits.conf > /dev/null
+        # For control of core dumps and file names:
+        # http://man7.org/linux/man-pages/man5/core.5.html
+        mkdir -p "$HOME/data/logs"
+        echo "$HOME/data/logs/core.%e.%p.%h.%t" |sudo tee -a  /proc/sys/kernel/core_pattern > /dev/null
+    production_settings:
+      exec: |
+        # mongodb production recommended configuration
+        # https://docs.mongodb.com/manual/administration/production-notes/#recommended-configuration
+        echo "never" | sudo tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null
+        echo "never" | sudo tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null
+
+  post_provisioning:
+    - on_all_hosts: ${infrastructure_provisioning.post_provisioning_steps.set_readahead}
+    - on_all_hosts: ${infrastructure_provisioning.post_provisioning_steps.set_ulimits}
+    - on_all_hosts: ${infrastructure_provisioning.post_provisioning_steps.production_settings}
+
+
+workload_setup:
+  # Paths to other repos on your workstation
+  local_repos:
+    workloads: ./workloads
+    ycsb: ./YCSB
+    linkbench: ./linkbench
+    linkbench2: ./linkbench2
+    tpcc: ./tpcc
+    genny: ./data/genny  # Put genny on the large drive to give it more space.
+    benchmarks: ./benchmarks
+  downloads:
+    # Note that Genny also downloads curator, the version is specified in src/lamplib/tasks/download.py.
+    # Please try to keep the versions consistent with each other.
+    curator: "https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-rhel70-198c374fe4cb245570858f07c6d4d2e4ae13ede5.tar.gz"
+
+
+mongodb_setup:
+  mongo_dir: mongodb
+  journal_dir: /media/ephemeral1/journal
+  clean_db_dir: true
+  # Note: It's also allowed to upload your own binary. You can unset this by setting to the empty
+  # string "" in mongodb_setup.yml or overrides.yml.
+  # This URL is 4.0.16. We use the sys-perf build instead of official release to include the jstests/ directory that we copy in our compile task.
+  mongodb_binary_archive: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_4.0_2a5433168a53044cb6b4fa8083e4cfd7ba142221/2a5433168a53044cb6b4fa8083e4cfd7ba142221/linux/mongodb-sys_perf_4.0_2a5433168a53044cb6b4fa8083e4cfd7ba142221.tar.gz
+
+  mongod_config_file:  # Note these defaults can be overridden by user, but not unset.
+    net:
+      port: 27017
+      bindIp: 0.0.0.0
+    processManagement:
+      fork: true
+    setParameter:
+      enableTestCommands: 1
+    storage:
+      dbPath: data/dbs
+      engine: wiredTiger
+    systemLog:
+      destination: file
+      path: data/logs/mongod.log
+
+  authentication:
+    enabled: true
+    username: username
+    password: password
+
+  # Upload SSL keys (not always used but no harm in uploading them)
+  pre_cluster_start:
+    - on_all_hosts:
+        upload_repo_files:
+          - source: configurations/mongodb_setup/ssl/dsitest.dev.pem
+            target: ${mongodb_setup.mongo_dir}/member.pem
+          - source: configurations/mongodb_setup/ssl/dsitest.dev.ca-bundle
+            target: ${mongodb_setup.mongo_dir}/root.crt
+
+    - on_mongod:
+        # Create a generic clusterKeyFile for replicaSets to use with internal auth.
+        exec: |
+          echo -n 'mongodclusterkey' > /tmp/clusterKeyFile
+          chmod 400 /tmp/clusterKeyFile
+
+  mongos_config_file:
+    net: ${mongodb_setup.mongod_config_file.net}
+    processManagement:
+      fork: true
+    setParameter:
+      enableTestCommands: 1
+    systemLog:
+      destination: file
+      path: data/logs/mongos.log
+
+  rs_conf:
+    settings:
+      chainingAllowed: false
+
+  configsvr_config_file:
+    net: ${mongodb_setup.mongod_config_file.net}
+    processManagement:
+      fork: true
+    setParameter:
+      enableTestCommands: 1
+    storage:
+      dbPath: data/dbs
+      engine: wiredTiger
+    systemLog:
+      destination: file
+      path: data/logs/mongod.log
+
+  # these options are passed to the mongo shutdownServer command
+  shutdown_options:
+    force: true
+    timeoutSecs: 30
+
+  # these timeouts specify the max amount of milliseconds that the mongo shutdownServer command and
+  # pkill mongo commands can run for.
+  timeouts:
+    shutdown_ms: 540000
+    sigterm_ms: 60000
+
+  meta:
+    # A single host, as in "host:port". Use the primary or first mongos
+    hostname: ${mongodb_setup.topology.0.mongos.0.private_ip}
+    # The list of hosts that can be used in a mongodb connection string
+    hosts: ${mongodb_setup.topology.0.private_ip}:27017
+    # This lets you easily append &replicaSet=foo or other url params
+    # but still keep the base url with authentication etc.
+    # This param in general shouldn't be overwritten.
+    # This should *not* have any query-string parts in it - downstream is expecting to be the first to add on a ?
+    mongodb_url_base: "mongodb://${mongodb_setup.authentication.username}:${mongodb_setup.authentication.password}@${mongodb_setup.meta.hosts}/admin"
+    # Most clients will use this to connect to the cluster
+    mongodb_url: "${mongodb_setup.meta.mongodb_url_base}?ssl=false"
+    # We need to provide a separate variable for the shell, because the shell on 3.4 doesn't
+    # support connecting to multiple mongoses and therefore can't use mongodb_url.
+    mongodb_shell_url: "mongodb://${mongodb_setup.authentication.username}:${mongodb_setup.authentication.password}@${mongodb_setup.meta.hostname}:27017/admin?ssl=false"
+    # Used in mongoshell workloads (https://github.com/10gen/workloads/blob/23b1c6dd3a8c087b6a2c949147a8aeaba1d1d271/run_workloads.py#L289-L296)
+    shell_ssl_options: []
+    is_sharded: false
+    is_replset: false
+    is_fle: false
+    secondary: null
+    is_atlas: false
+    # Meta-data used to determine scale_factor for a cluster
+    storageEngine: ${mongodb_setup.mongod_config_file.storage.engine}
+    # Number of primaries in the cluster. For non-sharded this
+    # should be 1. For sharded will be the number of shards.
+    primaries: 1
+    secondaries: 0  # Secondaries per shard
+
+  post_test:
+    - on_all_servers:
+        retrieve_files:
+          - source: data/logs/
+            target: ./
+    - on_mongod:
+        retrieve_files:
+          - source: data/dbs/diagnostic.data
+            target: ./diagnostic.data
+    - on_configsvr:
+        retrieve_files:
+          - source: data/dbs/diagnostic.data
+            target: ./diagnostic.data
+
+  post_task:
+    - on_all_servers:
+        exec: |
+          rm -rf ./mdiag
+          mkdir -p ./mdiag
+          # TODO: After the PR for --fast option is merged, this can be changed to upstream at mongodb/support-tools
+          wget -q -O- https://raw.githubusercontent.com/henrikingo/support-tools/a814f83324f5576aa00a01a0e8e8b74ffb600869/mdiag/mdiag.sh > ./mdiag/mdiag.sh
+          # The output is written to "$TMPDIR/mdiag-$(hostname).json".
+          # This json file is machine readable, rendering the
+          # output to a more hunan friendly format is not done here.
+          echo "Collecting config and perf metrics with mdiag."
+          sudo TMPDIR=./mdiag bash ./mdiag/mdiag.sh --inhibit-new-version-check --fast > /dev/null
+    - on_all_servers:
+        retrieve_files:
+          - source: mdiag/
+            target: ./
+
+  upon_error:
+    - on_all_servers:
+        exec: |
+          (df; du  --max-depth 1 ./data) | sed "s/^/$(hostname): /"
+        retrieve_files:
+          - source: data/logs/
+            target: ./
+    - on_mongod:
+        retrieve_files:
+          - source: data/dbs/diagnostic.data
+            target: ./diagnostic.data
+    - on_configsvr:
+        retrieve_files:
+          - source: data/dbs/diagnostic.data
+            target: ./diagnostic.data
+
+runtime:
+  workdir: ..
+
+test_control:
+  is_production: ${bootstrap.production}
+  mongodb_url: ${mongodb_setup.meta.mongodb_url}
+  task_name: default_task_name
+  timeouts:
+    no_output_ms: 5400000  # 90 minutes
+  numactl_prefix_for_workload_client: ""
+  jstests_dir: ./jstests/hooks
+  between_tests:
+    - restart_mongodb:
+        clean_logs: true
+        clean_db_dir: true
+
+  output_file:
+    mongoshell: test_output.log
+    ycsb: test_output.log
+    fio: fio.json
+    iperf: iperf.json
+    tpcc: results.log
+    genny: genny-perf.json
+    sysbench: test_output.log
+
+  # As I'm writing this, the basename IS the name. PERF-1096 will add a unique component.
+  reports_dir_basename: reports
+  perf_json:
+    path: perf.json
+
+  common_fio_config: |
+    [global]
+    directory=./data/fio
+    filename_format=fiofile.$jobnum.$filenum
+    size=1G
+    runtime=120
+    time_based
+    group_reporting
+    ioengine=libaio
+    direct=1
+
+    [setupfiles]
+    stonewall
+    filesize=1G
+    nrfiles=16
+    filename_format=fiofile.$filenum.0
+    rw=randrw
+    numjobs=1
+    runtime=1
+
+    [latency_test]
+    stonewall
+    description=This is for random read and write latency. 1 at a time
+    rw=randrw
+    numjobs=1
+    bs=1
+    ioengine=sync
+    direct=0
+    filesize=1G
+    nrfiles=16
+    filename_format=fiofile.$filenum.0
+    write_bw_log=fiolatency
+    write_lat_log=fiolatency
+    write_iops_log=fiolatency
+
+    [iops_test]
+    stonewall
+    description=How many iops can I sustain in parallel
+    rw=randrw
+    numjobs=32
+    bs=4k
+    iodepth=32
+    write_bw_log=fioiops
+    write_lat_log=fioiops
+    write_iops_log=fioiops
+
+    [streaming_bandwidth_test]
+    stonewall
+    description=Measure streaming bandwidth
+    rw=rw
+    numjobs=16
+    bs=16k
+    iodepth=32
+    write_bw_log=fiostreaming
+    write_lat_log=fiostreaming
+    write_iops_log=fiostreaming
+
+  common_fio_net_config: |
+    [global]
+    ioengine=net
+    port=27019
+    protocol=tcp
+    bs=4k
+    size=1g
+    runtime=20
+    time_based
+    pingpong=1
+
+    [sender]
+    hostname=${mongodb_setup.meta.hostname}
+    rw=write
+
+  common_fio_net_config_listener: |
+    [global]
+    ioengine=net
+    port=27019
+    protocol=tcp
+    bs=4k
+    size=1g
+    runtime=40
+    time_based
+    pingpong=1
+
+    [receiver]
+    listen
+    rw=read
+
+  ycsb_sharding_script: |
+    if ("${mongodb_setup.meta.is_sharded}" == "True") {
+      (function () {
+        var err;
+        for (var i = 0; i < 20; i++) {
+          try {
+            assert.commandWorked(sh.enableSharding("ycsb"));
+            assert.commandWorked(
+              sh.shardCollection("ycsb.usertable", {_id: "hashed"}));
+            db.printShardingStatus();
+            return;
+          } catch (e) {
+            err = e;
+            sleep(1000);
+          }
+        }
+        throw err;
+      })()
+    } else {
+      print ("Non-sharded cluster");
+    }
+
+  bestbuy_sharding_script: |
+    if ("${mongodb_setup.meta.is_sharded}" == "True") {
+
+      // The following variables that are specific to the workload.
+      // NOTE: the splits must be in order.
+      var dbName = 'bestbuy';
+      var sourceNs = 'bestbuy.products';
+
+      // In addition to sharding the main namespace of the workload, we also set up some collections
+      // which are initially empty but meant to be targeted by an $out stage during the test.
+      var targetNsIdenticalDistributionSameDB = 'bestbuy.target_identical_distribution';
+      var targetNsRangeIdSameDB = 'bestbuy.target_range_id';
+      var targetDBName = 'target';
+      var targetNsIdenticalDistributionOtherDB = 'target.identical_distribution';
+      var targetNsIdHashedOtherDB = 'target.hashed_id';
+
+      var keyPattern = {type: 1, productId: 1, _id: 1};
+      var typeAndProductSplits = [
+        {type: MinKey,     productId: MinKey, _id: 0},
+        {type: 'Game',     productId: NumberLong('1218086489034'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1118840368488'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1218105505555'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1218379812886'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1218475610897'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1218618813745'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1218728444211'), _id: 0}, // 8,9
+        {type: 'HardGood', productId: NumberLong('1219080834391'), _id: 0},
+        {type: 'HardGood', productId: NumberLong('1219736622160'), _id: 0}, // 7
+        {type: 'Movie',    productId: NumberLong('28132'), _id: 0},         // 6
+        {type: 'Movie',    productId: NumberLong('44465'), _id: 0},
+        {type: 'Movie',    productId: NumberLong('59159'), _id: 0},         // 5
+        {type: 'Movie',    productId: NumberLong('1344253'), _id: 0},
+        {type: 'Movie',    productId: NumberLong('1459047'), _id: 0},       // 8,9
+        {type: 'Movie',    productId: NumberLong('1627489'), _id: 0},       // 4
+        {type: 'Movie',    productId: NumberLong('1921771'), _id: 0},
+        {type: 'Movie',    productId: NumberLong('2180510'), _id: 0},
+        {type: 'Movie',    productId: NumberLong('2702290'), _id: 0},       // 7
+        {type: 'Movie',    productId: NumberLong('3313579'), _id: 0},
+        {type: 'Music',    productId: NumberLong('73927'), _id: 0},         // 3,6
+        {type: 'Music',    productId: NumberLong('97408'), _id: 0},         // 8,9
+        {type: 'Music',    productId: NumberLong('120846'), _id: 0},
+        {type: 'Music',    productId: NumberLong('145563'), _id: 0},
+        {type: 'Music',    productId: NumberLong('172542'), _id: 0},        // 5
+        {type: 'Music',    productId: NumberLong('199025'), _id: 0},
+        {type: 'Music',    productId: NumberLong('226846'), _id: 0},
+        {type: 'Music',    productId: NumberLong('261778'), _id: 0},        // 7
+        {type: 'Music',    productId: NumberLong('301467'), _id: 0},        // 8,9
+        {type: 'Music',    productId: NumberLong('1337396'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1393391'), _id: 0},       // 4,6
+        {type: 'Music',    productId: NumberLong('1443146'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1484664'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1531482'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1582679'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1624125'), _id: 0},       // 8,9
+        {type: 'Music',    productId: NumberLong('1686112'), _id: 0},       // 5,7
+        {type: 'Music',    productId: NumberLong('1778529'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1815087'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1858555'), _id: 0},
+        {type: 'Music',    productId: NumberLong('1920647'), _id: 0},       // 3,6
+        {type: 'Music',    productId: NumberLong('1992906'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2067260'), _id: 0},       // 8,9
+        {type: 'Music',    productId: NumberLong('2149519'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2229905'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2305925'), _id: 0},       // 4
+        {type: 'Music',    productId: NumberLong('2428992'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2558418'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2656772'), _id: 0},       // 5,7
+        {type: 'Music',    productId: NumberLong('2709433'), _id: 0},       // 8,9
+        {type: 'Music',    productId: NumberLong('2776923'), _id: 0},       // 6
+        {type: 'Music',    productId: NumberLong('2820755'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2864319'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2900297'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2933428'), _id: 0},
+        {type: 'Music',    productId: NumberLong('2971126'), _id: 0},
+        {type: 'Music',    productId: NumberLong('3230451'), _id: 0},       // 7,8,9
+        {type: 'Music',    productId: NumberLong('3310959'), _id: 0},
+        {type: 'Music',    productId: NumberLong('3383162'), _id: 0},
+        {type: 'Music',    productId: NumberLong('3514683'), _id: 0},
+      ];
+
+      // Get a list of the shard names.
+      var config = db.getSiblingDB("config");
+      var shards = config.shards.find({},{_id:1}).map(function(s){return s._id;});
+
+      // Utility function to split a chunk in the middle.
+      // See https://docs.mongodb.com/manual/reference/command/split/.
+      // The split document must contain:
+      //     ns {string} the collection names.
+      //     middle {document} the split point.
+      var splitter = function(split){
+        return db.adminCommand({split: split.ns, middle: split.middle});
+      };
+      // Utility function to move a chunk.
+      // See https://docs.mongodb.com/manual/reference/command/moveChunk/
+      // The split document must contain:
+      //     ns {string} the collection names
+      //     middle {document} the split point
+      //     shard {string} the destination shard
+      var mover = function(split){
+        return db.adminCommand({moveChunk: split.ns, find: split.middle, to: split.shard});
+      };
+
+      assert.commandWorked(sh.enableSharding(dbName));
+      assert.commandWorked(sh.enableSharding(targetDBName));
+      assert.commandWorked(sh.shardCollection(sourceNs, keyPattern));
+      assert.commandWorked(sh.shardCollection(targetNsIdenticalDistributionSameDB, keyPattern, /*unique=*/true));
+      assert.commandWorked(sh.shardCollection(targetNsIdenticalDistributionOtherDB, keyPattern, /*unique=*/true));
+
+      // For a shard key {_id: "hashed"}, MongoDB will automatically split the collection into
+      // two chunks per shard so no further work is necessary.
+      assert.commandWorked(sh.shardCollection(targetNsIdHashedOtherDB, {_id: "hashed"}));
+
+      var idAlphabetSplits = "abcdefghijklmnopqrstuvwxyz".split("").map(function(letter) {
+          return {_id: letter};
+      });
+      assert.commandWorked(sh.shardCollection(targetNsRangeIdSameDB, {_id: 1}));
+
+      var distributeColl = function (ns, splits) {
+
+        // Given the split points 'splits' and 'nShards' shards, we try to partition the data such
+        // that each shard has one chunk, but each chunk is of a similar size. Assuming there is a
+        // similar amount of data between each split point, this means dividing the splits into
+        // 'nShards' equal chunks.
+        //
+        // For example, if there are 31 entries in 'splits' and 3 shards, we take the 0th, 11th,
+        // and 22nd entries, resulting in a filtered array of length 3.
+        //
+        // The map function creates a new document of the format required by the splitter and mover
+        // functions. That is, it creates a document with:
+        //    shard {string} the destination shard
+        //    ns {string} the fully qualified collection namespace
+        //    middle {document} the split point
+        //
+        // For a reasonable number of splits filter is ok. For a very large number
+        // it will perform poorly. BUT, even in this case, it will probably be negligible.
+        var distribution =  splits.filter(function(element, index){
+          return index % Math.ceil(splits.length / shards.length) == 0;
+        }).map(function(middle, i) {
+          return {shard:shards[i % shards.length], middle:middle, ns: ns};
+        });
+
+        // Create the split points.
+        // NOTE: to create N chunks, you only need N - 1 split points.
+        distribution.slice(1).forEach(function(split) {
+          assert.commandWorked(splitter(split));
+        });
+
+        // Move the chunks to specific shards.
+        distribution.forEach(function(split){ assert.commandWorked(mover(split));});
+      };
+
+      // Disable balancing. If the split points are fair, then the cluster will still be in balance
+      // at the end of the restore.
+      sh.stopBalancer();
+
+      distributeColl(sourceNs, typeAndProductSplits);
+      distributeColl(targetNsIdenticalDistributionSameDB, typeAndProductSplits);
+      distributeColl(targetNsIdenticalDistributionOtherDB, typeAndProductSplits);
+      distributeColl(targetNsRangeIdSameDB, idAlphabetSplits);
+
+      db.printShardingStatus();
+    } else {
+      print ("Non-sharded cluster");
+    }
+
+# add a delay before each test. Units are seconds but the value can be an int or float.
+#  test_delay_seconds: 1
+
+  start_mongo_cryptd: |
+    # Start mongocryptd separately so that it runs on a different cpu
+    pwd
+    if [ "${mongodb_setup.meta.is_fle}" == "True" ]; then
+      "${mongodb_setup.mongo_dir}/bin/mongocryptd" --logpath "$HOME"/cryptd.log --pidfilepath="$HOME"/mongocryptd.pid --fork
+    fi
+
+  cwrwc_setup_script: |
+    (function () {
+      var err;
+      for (var i = 0; i < 20; i++) {
+        try {
+          // Set the CWRWC defaults to be the same as the implicit server defaults, which should
+          // perform equivalently to when the defaults are never set.
+          printjson(assert.commandWorked(db.adminCommand({
+              setDefaultRWConcern: 1,
+              defaultReadConcern: {level: "local"},
+              defaultWriteConcern: {w: 1, wtimeout: 0}})));
+          return;
+        } catch (e) {
+          err = e;
+          sleep(1000);
+        }
+      }
+      throw err;
+    })();

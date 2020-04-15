@@ -1,0 +1,24 @@
+authentication: enabled
+auto_genny_workload: null
+infrastructure_provisioning: single
+mongodb_setup: standalone
+overrides:
+  infrastructure_provisioning:
+    tfvars:
+      mongod_seeded_ebs_snapshot_id: null
+  mongodb_setup:
+    mongodb_binary_archive: "https://s3.amazonaws.com/some-long-url.tar.gz"
+    mongodb_dataset: null
+  workload_setup:
+    local_repos:
+      genny: ../src/genny/genny
+      linkbench: ../src/linkbench/linkbench
+      tpcc: ../src/tpcc/tpcc
+      workloads: ../src/workloads/workloads
+      ycsb: ../src/YCSB/YCSB
+platform: linux
+production: true
+storageEngine: wiredTiger
+test_control: short
+test_name: short
+canaries: none

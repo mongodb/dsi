@@ -1,0 +1,6 @@
+task_name: ${bootstrap.test_name}
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ${bootstrap.test_name}
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/${bootstrap.auto_genny_workload}

@@ -1,0 +1,293 @@
+command_type: system
+
+pre:
+
+
+post:
+  # Do cluster teardown first to ensure runtime is below Evergreen's post timeout. Other post tasks
+  # will not have been run if the timeout is exceeded.
+  - command: shell.exec
+    params:
+      working_dir: work
+      script: |
+        if [ -e /data/infrastructure_provisioning/terraform/provisioned.${cluster} ]; then
+          mark_idle.sh
+        fi
+  - command: shell.exec
+    params:
+      working_dir: work
+      script: |
+        ../src/run-dsi infrastructure_teardown
+
+
+functions:
+  setup_tests:
+    - command: git.get_project
+      params:
+        directory: src
+    - command: git.apply_patch
+      params:
+        directory: src
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        script: |
+          echo "building credentials file"
+          cat > config.yml << END_OF_CREDS
+          {
+            evergreen: {
+              user: "xgen-evg-user",
+              api_key: ${evergreen_token},
+              ui_server_host: "https://evergreen.mongodb.com"
+            },
+            github: {
+              token: ${github_token}
+            }
+          }
+          END_OF_CREDS
+
+  check_python_formatting:
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        script: |
+          ./run-dsi testscripts/check-format-python.sh
+
+  lint_python_scripts:
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        script: |
+          ./run-dsi testscripts/lint-python.sh
+
+  lint_yml:
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        script: |
+          ./run-dsi testscripts/lint-yml.sh
+
+  nosetests:
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        script: |
+          ./run-dsi testscripts/run-nosetest.sh
+    - command: s3.put
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/coverage.xml
+        remote_file: ${project}/${build_variant}/${revision}/${version_id}/coverage.xml
+        bucket: mciuploads
+        permissions: public-read
+        content_type: ${content_type|text/xml}
+        display_name: coverage.xml - Execution ${execution}
+
+  compare_coverage:
+    - command: s3.get
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/coverage.xml
+        remote_file: ${project}/${build_variant}/${revision}/${version_id}/coverage.xml
+        bucket: mciuploads
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: src
+        script: |
+          ./run-dsi testscripts/compare_coverage.py
+
+  git_get_project: &git_get_project
+    command: git.get_project
+    params:
+      directory: src
+      revisions:  # for each module include revision as <module_name> : ${<module_name>_rev}
+        genny: ${genny_rev}
+
+  "prepare environment":
+    - command: shell.exec
+      params:
+        script: |
+          rm -rf ./*
+          mkdir src
+          mkdir work
+    - command: manifest.load
+    - *git_get_project
+    - command: expansions.write
+      params:
+        file: work/expansions.yml
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: |
+          ../src/run-dsi bootstrap
+
+  "deploy cluster":
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: |
+          ../src/run-dsi deploy_cluster
+
+  "run test":
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: work
+        script: |
+          ../src/run-dsi test_control
+    - command: json.send
+      params:
+        name: "perf"
+        file: "work/perf.json"
+
+  "analyze":
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: work
+        script: |
+          ../src/run-dsi analysis
+
+
+#######################################
+#               Tasks                 #
+#######################################
+tasks:
+  - name: check_python_formatting
+    commands:
+      - func: setup_tests
+      - func: check_python_formatting
+
+  - name: compare_coverage
+    depends_on:
+      - name: nosetests
+    commands:
+      - func: setup_tests
+      - func: compare_coverage
+
+  - name: lint_python_scripts
+    commands:
+      - func: setup_tests
+      - func: lint_python_scripts
+
+  - name: lint_yml
+    commands:
+      - func: setup_tests
+      - func: lint_yml
+
+  - name: nosetests
+    commands:
+      - func: setup_tests
+      - func: nosetests
+
+  - name: smoke_test
+    commands:
+      - func: "prepare environment"
+        vars:
+          test: "short"
+      - func: "deploy cluster"
+      - func: "run test"
+
+  - name: genny_generate_all_tasks
+    commands:
+      - func: git_get_project
+      - command: shell.exec
+        params:
+          working_dir: src
+          script: |
+            ../src/genny/genny/scripts/genny_auto_tasks.sh --generate-all-tasks --output build/all_tasks.json
+            cat ../src/genny/genny/build/all_tasks.json
+      - command: generate.tasks
+        params:
+          files:
+            - src/genny/genny/build/all_tasks.json
+
+  - name: genny_auto_tasks
+    commands:
+      - func: git_get_project
+      - command: shell.exec
+        params:
+          script: |
+            mkdir work
+      - command: shell.exec
+        params:
+          working_dir: work
+          script: |
+            ../src/genny/genny/scripts/genny_auto_tasks.sh --output build/auto_tasks.json --variants "${build_variant}" --forced-workloads docs/RunCommand-Simple.yml
+            cat ../src/genny/genny/build/auto_tasks.json
+      - command: generate.tasks
+        params:
+          files:
+            - src/genny/genny/build/auto_tasks.json
+
+
+#######################################
+#               Modules               #
+#######################################
+# if a module is added and to be added to the manifest
+# be sure to add the module to git.get_project revisions parameter
+modules:
+  - name: genny
+    repo: git@github.com:mongodb/genny.git
+    prefix: genny
+    branch: master
+
+
+#######################################
+#            Buildvariants            #
+#######################################
+
+buildvariants:
+  - name: linux-runner-self-test
+    display_name: Linux Self Test
+    run_on:
+      - "rhel70-small"
+    tasks: &dsi_tasks
+      - name: check_python_formatting
+      - name: compare_coverage
+      - name: lint_python_scripts
+      - name: lint_yml
+      - name: nosetests
+
+  - name: osx-runner-self-test
+    display_name: OSX Self Test
+    run_on:
+      - "macos-1014"
+    tasks: *dsi_tasks
+
+  - name: sys-perf-genny-generate
+    display_name: Sys-perf Genny Generate
+    modules:
+      - genny
+    run_on:
+      - "amazon2-build"
+    tasks:
+      - name: genny_generate_all_tasks
+
+  - name: sys-perf-integration-test
+    display_name: Sys-perf Integration Test
+    modules:
+      - genny
+    expansions:
+      setup: standalone
+      cluster: single
+      platform: linux
+      project_dir: dsi
+      authentication: enabled
+      storageEngine: wiredTiger
+    run_on:
+      - "rhel70-perf-single"
+    depends_on:
+      - name: genny_generate_all_tasks
+        variant: sys-perf-genny-generate
+    tasks:
+      - name: smoke_test
+      - name: genny_auto_tasks

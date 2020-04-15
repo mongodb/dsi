@@ -1,0 +1,22 @@
+out:
+  mongod:
+    - &id001
+      private_ip: 10.2.0.100
+      public_ip: 52.41.40.0
+    - &id002
+      private_ip: 10.2.0.101
+      public_ip: 52.37.52.162
+  mongod_all:
+    - *id001
+    - *id002
+    - &id003
+      private_ip: 10.2.0.200
+      public_ip: 52.25.102.16
+    - &id004
+      private_ip: 10.2.0.201
+      public_ip: 52.25.102.17
+  mongod_ebs:
+    - *id003
+    - *id004
+  workload_client:
+    - public_ip: 52.33.30.1

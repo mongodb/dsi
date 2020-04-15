@@ -1,0 +1,29 @@
+atlas:
+  api:
+    root: https://cloud-dev.mongodb.com/api/atlas/v1.0/MOCK/URL
+    private: https://cloud.mongodb.com/api/private/MOCK/URL
+    group_id: test_group_id
+  clusters:
+    - autoScaling:
+        diskGBEnabled: false
+      clusterType: REPLICASET
+      mongoDBMajorVersion: 4.0
+      numShards: 1
+      providerSettings:
+        providerName: AWS
+        regionName: US_WEST_2
+        instanceSizeName: M10
+        diskIOPS: 300
+      diskSizeGB: 100
+  custom_build:
+    trueName: 4.2.0-rc1-45-g84519c5
+    gitVersion: 84519c5dcffde5e59a007a19be32d943b32e908e
+    architecture: amd64
+    modules:
+      - enterprise
+    platform: linux
+    flavor: rhel
+    minOsVersion: "7.0"
+    maxOsVersion: "8.0"
+    # https://evergreen.mongodb.com/task/mongodb_mongo_v4.2_enterprise_rhel_70_64_bit_compile_84519c5dcffde5e59a007a19be32d943b32e908e_19_06_20_14_41_53
+    url: https://s3.amazonaws.com/mciuploads/mongodb-mongo-v4.2/enterprise-rhel-70-64-bit/84519c5dcffde5e59a007a19be32d943b32e908e/binaries/mongo-mongodb_mongo_v4.2_enterprise_rhel_70_64_bit_84519c5dcffde5e59a007a19be32d943b32e908e_19_06_20_14_41_53.tgz

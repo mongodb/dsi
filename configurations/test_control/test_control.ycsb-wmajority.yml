@@ -1,0 +1,108 @@
+task_name: ycsb-wmajority
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ycsb_load
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb load mongodb -s
+      -P ../../workloadEvergreen
+      -threads ${test_control.thread_levels.load.${mongodb_setup.meta.storageEngine}};
+    config_filename: workloadEvergreen
+    # Increased recordcount for TIG-1118 to ensure at least 5M documents are loaded.
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&w=majority
+      recordcount=5001000
+      operationcount=20000000
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=1.0
+      updateproportion=0.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+
+  - id: ycsb_95read5update_w_majority
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      for level in ${test_control.thread_levels.level95-5.${mongodb_setup.meta.is_sharded}.${mongodb_setup.meta.storageEngine}}; do
+        ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s \
+        -P ../../workloadEvergreen_95read5update \
+        -threads $level;
+      done
+    config_filename: workloadEvergreen_95read5update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&w=majority
+      recordcount=5000000
+      operationcount=20000000
+      maxexecutiontime=600
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.95
+      updateproportion=0.05
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+
+  - id: ycsb_50read50update_w_majority
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      for level in ${test_control.thread_levels.level50-50.${mongodb_setup.meta.is_sharded}.${mongodb_setup.meta.storageEngine}}; do
+        ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s \
+        -P ../../workloadEvergreen_50read50update \
+        -threads $level;
+      done
+    config_filename: workloadEvergreen_50read50update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&w=majority
+      recordcount=5000000
+      operationcount=20000000
+      maxexecutiontime=600
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.5
+      updateproportion=0.5
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+
+# Note: where multiple thread levels support is provided, it is implemented as a bash loop. As a
+# result, arrays MUST be passed as strings.
+# Single values could be strings or numbers BUT in the following configurations string values are
+# passed where ever an array can be used and number literals are passed where a single value (only)
+# can be used.
+# Note: the load test is not run in a loop and only supports a single thread level.
+thread_levels:
+  load:
+    mmapv1: 256
+    wiredTiger: 512
+  level95-5:
+    "True":  # Sharded
+      mmapv1: "1 128"
+      wiredTiger: "64 128"
+    "False":  # Not Sharded
+      mmapv1: "1 128"
+      wiredTiger: "1 64"
+  level50-50:
+    "True":  # Sharded
+      mmapv1: "512"
+      wiredTiger: "1 256 512"
+    "False":  # Not Sharded
+      mmapv1: "128"
+      wiredTiger: "1 512"
+
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false
+
+pre_task:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_shell_url}
+        # Shard the YCSB cluster if sharding is enabled
+        script: ${test_control.ycsb_sharding_script}
+
+

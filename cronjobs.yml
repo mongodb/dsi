@@ -1,0 +1,18 @@
+image:
+  repository: python
+  tag: 2.7
+globalEnvSecrets:
+  PERF_JIRA_USER: cron-secrets
+  PERF_JIRA_PW: cron-secrets
+  MONGO_URI: cron-secrets
+  EVERGREEN_TOKEN: cron-secrets
+  GITHUB_TOKEN: cron-secrets
+  AWS_ACCESS_KEY_ID: cron-secrets
+  AWS_SECRET_ACCESS_KEY: cron-secrets
+cronJobs:
+  - name: delete-stranded-vpcs
+    schedule: "30 * * * *"
+    command: ["delete-stranded-vpcs"]
+  - name: delete-placement-groups
+    schedule: "30 * * * *"
+    command: ["delete-placement-groups"]

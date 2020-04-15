@@ -1,0 +1,35 @@
+# Can override any of the values in the input or output file above. If specified, the config library
+# will return this value in place of the above keys. Typical use case would be to use a standard
+# config file as base, but then override a single value in this separate file.
+infrastructure_provisioning:
+  tfvars:
+    configsvr_instance_type: t1.micro  # Use even smaller instance type to save money
+
+    # The expire-on-delta tag is the number of hours added to the current datetime and is used to
+    # set the expire-on tag for the AWS reaper. After the changes from TIG-1128, the
+    # infrastructure_provisioning*.yml files use a shorter expire-on-delta to avoid leaking
+    # AWS instances for an extended period of time. Increasing the number of hours may be useful
+    # while experimenting locally to avoid the AWS instances being torn down out from under you.
+    expire-on-delta: 24
+
+# Below section tests that overrides.yml works together with magic per_node_mongo_config()
+mongodb_setup:
+  mongod_config_file:
+    replication:
+      replSetName: override-rs
+    setParameter:
+      foo: true
+  topology:
+    - mongos:
+        -
+        -
+        -
+        - public_ip: 127.0.0.1   # Adds a 4th mongos on localhost
+          private_ip: 127.0.0.1
+
+# Merely for demonstrating null valued key support
+runtime:
+  overridden_none: "hey there"
+  override_with_none: null
+  overridden_dict: null
+  overridden_list: null

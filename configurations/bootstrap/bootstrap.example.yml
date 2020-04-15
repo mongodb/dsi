@@ -1,0 +1,120 @@
+# Input for bootstrap which prepares an environment to provision resources for local performance
+# testing. The bootstrap phase takes as input a small number of parameters which describe the system
+# to be created. Based on these bootstrap parameters, bootstrap will prepare a work directory
+# that contains additional .yml configuration files, terraform related files, etc. As an example,
+# based on the infrastructure_provisioning key, it will put into place the related
+# infrastructure_provisioning.yml file:
+#
+#     cp $DSI_PATH/configurations/infrastructure_provisioning/infrastructure_provisioning.cluster_type.yml infrastructure_provisioning.yml
+#
+# Please consult the README.md documentation for more information.
+
+# QUICKSTART
+#
+# To run the DSI infrastructure, make a copy of this file, then edit the entries below for your use.
+# Then, run:
+#
+#     ./run-dsi bootstrap --directory work \
+#                         --bootstrap-file /path/to/your/copy/of/this/file
+#
+# This will make a new directory work, configured with everything you need to run the
+# infrastructure.
+#
+# After successfully running bootstrap, you can execute the following commands to provision
+# infrastructure, set up mongodb, and run test workloads:
+#
+#     cd work
+#     ../run-dsi infrastructure_provisioning
+#     ../run-dsi workload_setup
+#     ../run-dsi mongodb_setup
+#     ../run-dsi test_control
+#     ../run-dsi infrastructure_teardown
+#
+# Update the fields below to reflect personal information and desired configuration parameters:
+
+
+# OPTIONAL BUT RECOMMENDED (See $DSI_PATH/configurations/defaults.yml for default values):
+
+# Specify the type of infrastructure to be provisioned (single, replica, shard, longevity,
+# initialsync-logkeeper, workload_client).
+# See the .yml files located in $DSI_PATH/configurations/infrastructure_provisioning for more
+# information about each configuration.
+infrastructure_provisioning: single
+
+# Specify the mongodb configuration to test (standalone, single-replica, replica, replica-2node,
+# shard, shard-longevity, initialsync-logkeeper, atlas).
+# See the .yml files located in $DSI_PATH/configurations/mongodb_setup for more information about
+# each configuration.
+mongodb_setup: standalone
+
+# Specify the set of tests to be run. See the .yml files located in
+# $DSI_PATH/configurations/test_control for more information about each set of tests.
+test_control: ycsb.short
+
+# Comment the line below to run canary tests with the workload
+canaries: none
+
+# To run a *genny workload*, uncomment and fill in the 2 lines below with your workload.
+# test_name should be identical to test_control, and is conventionally the filename of the
+# workload in camel_case.
+# auto_genny_workload is the path to the workload you'd like to run, relative to the
+# src/workloads/ directory in the genny repository.
+# test_name: big_update
+# auto_genny_workload: scale/BigUpdate.yml
+
+
+# The following will be copied into a file overrides.yml. This is a handy way to set any other
+# config option you want. The below values will override what is set in the other files.
+overrides:
+  infrastructure_provisioning:
+    tfvars:
+      # Personal information (REQUIRED)
+      # Specify the path to your SSH private key file for AWS, the name of the key in EC2, and your
+      # @10gen.com username. This is necessary to connect to your provisioned infrastructure. For a full
+      # description, see the Requirements section of the documentation: http://bit.ly/2ufjQ0R.
+      ssh_key_file: ~/.ssh/NAME_OF_SSH_KEY  # SSH private keyfile to use with AWS (~/.ssh/USERNAME-dsikey if you're following the doc)
+      ssh_key_name: NAME_OF_SSH_KEY  # The Name of the Key, as known in EC2 (USERNAME-dsikey if you're following the doc)
+
+      tags:
+        owner: your.username  # Your mongodb email address
+        expire-on-delta: 24  # Set expire-on tag this many hours in the future. (Default is 2.)
+
+
+  # Remaining config is OPTIONAL
+
+  # Specify the paths for the repos 'workloads' and 'YCSB' & co.
+  # They are available at https://github.com/10gen/workloads.
+  # and https://github.com/mongodb-labs/YCSB, and are required for many of the test configurations.
+  # If omitted, DSI will automatically clone the repo from github as needed.
+  # workload_setup:
+  #   local_repos:
+  #     workloads: ./workloads
+  #     ycsb: ./YCSB
+  #     linkbench: ./linkbench
+  #     linkbench2: ./linkbench2
+  #     tpcc: ./tpcc
+  #     genny: ./data/genny  # Put genny on the large drive to give it more space.
+  #     benchmarks: ./benchmarks
+  # If running on a mac or if you want a custom version of curator, put the url to the tgz here
+  #   For mac, use: https://s3.amazonaws.com/mciuploads/curator/curator_macos_94b7400131699cb79429893d43995b02630c5aa3_19_03_01_22_34_56-macos/curator-dist-94b7400131699cb79429893d43995b02630c5aa3.tar.gz
+  # Find more here: https://evergreen.mongodb.com/waterfall/curator
+  # Select build-variant you want and navigate to 'build' task and grab the url for the dist.tar.gz artifact
+  #  downloads:
+  #    curator: "https://s3.amazonaws.com/boxes.10gen.com/build/curator/curator-dist-rhel70-f78d20b10c7a70783c5ec47cc466bd9933e00212.tar.gz"
+
+  mongodb_setup:
+    # The MongoDB binary to use.
+    # Note: It's also allowed to upload your own binary. Set this to the empty string "" to do that.
+    # mongodb_binary_archive: mongodb_binary_archive: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_4.0_caa42a1f75a56c7643d0b68d3880444375ec42e3/caa42a1f75a56c7643d0b68d3880444375ec42e3/linux/mongodb-sys_perf_4.0_caa42a1f75a56c7643d0b68d3880444375ec42e3.tar.gz
+
+    atlas:
+      # When mongodb_setup = atlas, use this to select the atlas configuration to use.
+      setup: M30-like
+
+# DSI will search for terraform in your PATH. Terraform is required for deploying clusters into EC2.
+# See http://bit.ly/2ufjQ0R to download the files.
+# You can also provide the path to the terraform binary here. (The file, not the directory
+# containing it.) This will take precedence over a terraform found in your PATH.
+#
+# terraform: ~/path/to/terraform
+

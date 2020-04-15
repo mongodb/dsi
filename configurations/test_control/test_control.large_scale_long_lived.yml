@@ -1,0 +1,5 @@
+task_name: large_scale_long_lived
+run:
+  - id: LargeScaleLongLived
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/scale/LargeScaleLongLived.yml

@@ -1,0 +1,6 @@
+>>> latency_test_write_clat_mean :       608.21 1
+>>> latency_test_read_clat_mean :       596.43 1
+>>> iops_test_write_iops :      2749.00 1
+>>> iops_test_read_iops :      2764.00 1
+>>> streaming_bandwidth_test_write_iops :      6469.00 1
+>>> streaming_bandwidth_test_read_iops :      6474.00 1

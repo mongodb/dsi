@@ -1,0 +1,6 @@
+task_name: background_validate_cmd
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: BackgroundValidateCmd
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/execution/BackgroundValidateCmd.yml

@@ -1,0 +1,35 @@
+task_name: change_streams
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: change_streams_multi_mongos
+    type: mongoshell
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          - change_streams_crud_throughput:
+              thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.mongodb_setup}}
+              listener_levels: [15]
+              update_lookup: false
+              selective_change: false
+              nb_collections: 1
+              mongos_hosts: ${infrastructure_provisioning.out.mongos}
+          - change_streams_latency:
+              thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.mongodb_setup}}
+              listener_levels: [15]
+              update_lookup: false
+              selective_change: false
+              nb_collections: 1
+              mongos_hosts: ${infrastructure_provisioning.out.mongos}
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+thread_levels:
+  shard: [60]
+  shard-lite: [60]

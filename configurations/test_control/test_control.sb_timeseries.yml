@@ -1,0 +1,23 @@
+task_name: sysbench
+
+# One doc is 1097 bytes. 100k docs is 104MB. 1000 x 250k docs is 154GB
+# Normally we use 150GB to the oplog to make it really huge. The total disk size is 320 GB.
+# Since this test is designed to use lots of disk, we set oplog size to smaller from the test itself. Sorry for the inconsistency!
+sysbench:
+  opts: --csv-file=../../../sysbench.csv --percentile=99 --report-interval=1 --mongo-url='${mongodb_setup.meta.mongodb_url}' --num-collections=1000 --num-docs=150000 --set-oplog-size=50000
+
+
+run:
+  # When just running the timeseries workload alone, we can start with empty database.
+  - id: large_scale_timeseries_10sec
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./large_scale.lua run --threads=1000 --rate=200 --time=3600 --ts-create-interval=10 --ts-num-collections=180 --ts-insert-pct=85 --ts-point-query-pct=10 --ts-range-query-pct=5 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv
+    skip_validate: true
+
+  - id: large_scale_timeseries_1sec
+    type: sysbench
+    cmd: cd benchmarks/sysbench/lua && ./large_scale.lua run --threads=1000 --rate=200 --time=3600 --ts-create-interval=1 --ts-num-collections=180 --ts-insert-pct=85 --ts-point-query-pct=10 --ts-range-query-pct=5 ${test_control.sysbench.opts}
+    output_files:
+      - sysbench.csv

@@ -1,0 +1,38 @@
+[MESSAGES CONTROL]
+disable=locally-disabled,
+        locally-enabled,
+        fixme,
+        duplicate-code,
+        no-name-in-module,
+        too-few-public-methods,
+
+        # The valid style of black formatting is incorrectly labeled by pylint
+        # https://github.com/PyCQA/pylint/issues/289
+        bad-continuation
+
+[REPORTS]
+reports=no
+
+[BASIC]
+good-names=runTest,
+           _,
+           e,
+           i,
+           j,
+           k,
+           l,
+           m,
+           n,
+           x,
+           y,
+           z,
+           db,
+           _db
+
+[FORMAT]
+max-line-length=100
+msg-template={abspath}:{line}:{column}: [{msg_id}({symbol}), {obj}] {msg}
+
+[TYPECHECK]
+ignored-modules = numpy, matplotlib
+ignored-classes = numpy, matplotlib

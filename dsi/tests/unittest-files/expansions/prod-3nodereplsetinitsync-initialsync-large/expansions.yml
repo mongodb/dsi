@@ -1,0 +1,46 @@
+alias: ''
+authentication: disabled
+author: ryan.timmons
+aws_key: AKIAIAZPEY7FEV73BTOQ
+aws_secret: PB_FAKE_VALUE_nO
+branch_name: master
+build_id: sys_perf_linux_3_node_replSet_initialsync_patch_db557f20e03c91590ab3f6178bdcce2d327c7235_5e68f3acd1fe07709cad02ea_20_03_11_14_21_52
+build_variant: linux-3-node-replSet-initialsync
+cluster: replica
+created_at: '20_03_11_14_21_52'
+decompress: tar zxvf
+distro_id: rhel70-perf-replset
+dsi_analysis_atlas_pw: Kw_FAKE_VALUE_uX
+dsi_analysis_atlas_user: dsi_analysis
+dsi_rev: d11afb9169c4cf5ceb1d4f28112f419a26527454
+ec2_pem: --_FAKE_VALUE_--
+enterprise_rev: cc4d465764f651717620ef2b876fa19615757adb
+evergreen_api_key: 1e_FAKE_VALUE_04
+evergreen_api_user: Xgen-BuildBaron-User
+execution: '0'
+genny_rev: 9ec8db04a718d87cd940e6281d8d2137eac495ca
+global_github_oauth_token: eb6aa298b8782cffcd75c251294f9d170ac79bbf
+kill_pid: kill -- -$(ps opgid= %v)
+linkbench_rev: 1bff34ee945c2c732e4147d581d5d477bceff0dd
+mongo-tools_rev: e754c8572a06a2f43bd50d60b3b44b58425b549f
+perf_jira_pw: og_FAKE_VALUE_ep
+perf_jira_user: mongo-perf-user
+platform: linux
+project: sys-perf
+project_dir: dsi
+project_tags: ''
+ps: ps aux
+revision: db557f20e03c91590ab3f6178bdcce2d327c7235
+revision_order_id: 100
+scons_prune_ratio: '0.8'
+setup: replica-2node
+storageEngine: wiredTiger
+task_id: sys_perf_linux_3_node_replSet_initialsync_initialsync_large_patch_db557f20e03c91590ab3f6178bdcce2d327c7235_5e68f3acd1fe07709cad02ea_20_03_11_14_21_52
+task_name: initialsync-large
+terraform_key: AKIAIVLNQFIAXGACN47A
+terraform_secret: ia_FAKE_VALUE_LR
+test: initialsync-large
+version_id: 5e68f3acd1fe07709cad02ea
+workdir: /data/mci/91ac2cd7d05e55a21212952ccb35907b
+workloads_rev: fb3644c046e0bb385d08ec067327c9855ce9a1b3
+wtdevelop_rev: 9ea89ea5fa665a36518fdb28f5b6de0b84d2d5b1

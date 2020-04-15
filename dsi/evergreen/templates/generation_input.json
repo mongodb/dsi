@@ -1,0 +1,21 @@
+{
+    "variants" : [
+          {
+            "tagfile" : "where.tags.json",
+            "tag" : "3.1.4-Baseline"
+            "tests" : ["Insert.DocValidation.OneInt",
+                       "Insert.DocValidation.TenInt",
+                       "Insert.DocValidation.TwentyInt",
+                       "Inserts.PartialIndex.NonFilteredRange",
+                       "Inserts.PartialIndex.FullRange",
+                       "Inserts.PartialIndex.FilteredRange"]
+          },
+          {
+            "tagfile" : "update.tags.json",
+            "tag" : "3.1.4-Baseline"
+            "tests" : ["Update.DocValidation.OneInt",
+                       "Update.DocValidation.TenInt",
+                       "Update.DocValidation.TwentyInt"]
+          }
+    ]
+}

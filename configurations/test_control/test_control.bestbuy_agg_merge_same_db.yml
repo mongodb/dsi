@@ -1,0 +1,54 @@
+task_name: bestbuy_agg_merge_same_db
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          # Test $merge in the same database.
+          - agg_merge:
+              - testDbName: bestbuy
+                testCollName: products
+                nDocsPerMerge: [1, 1000, 100000]
+                matchRatio: [0, 0.5, 1.0]
+                # For pipeline modes, we omit the necessary $-prefix from the agg stage names. These will be added back in by the JS test code.
+                modes: [{whenMatched: "replace", whenNotMatched: "insert"}, {whenMatched: "fail", whenNotMatched: "insert"},
+                        {whenMatched: "merge", whenNotMatched: "insert"}, {whenMatched: [{replaceWith: "$$new"}], whenNotMatched: "insert"}]
+                targets: ["target_identical_distribution"]
+                targetDB: bestbuy
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+pre_task:
+  - on_workload_client:
+      # Preshard the cluster if running on a sharded cluster
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.hostname}:${mongodb_setup.meta.port}
+        script: ${test_control.bestbuy_sharding_script}
+  - on_workload_client:
+      exec: |
+        # Download and install the dataset
+        # Dataset is from the BestBuy Developer API website: https://bestbuyapis.github.io/api-documentation/#overview
+        cd data || exit 1
+        curl -O --retry 10 -fsS https://s3-us-west-2.amazonaws.com/dsi-donot-remove/AggPerformance/bestbuyproducts.bson.gz
+        ~/bin/mongorestore --numInsertionWorkersPerCollection=8 --bypassDocumentValidation --quiet -h "${mongodb_setup.meta.hostname}" --port="${mongodb_setup.meta.port}" --gzip --archive=bestbuyproducts.bson.gz || exit 1 $?
+        ~/bin/mongo --host "${mongodb_setup.meta.hostname}" --port="${mongodb_setup.meta.port}" --eval 'db.getSiblingDB("bestbuy").products.getShardDistribution()'
+post_task:
+  exec: |
+    rm data/bestbuy* # Cleanup download files.
+  exec_mongo_shell:
+    connection_string: ${mongodb_setup.meta.hostname}:${mongodb_setup.meta.port}
+    script: |
+      if ("${mongodb_setup.meta.is_sharded}" == "True") {
+        // re-enable the balancer
+        assert.commandWorked(sh.setBalancerState(true));
+        db.printShardingStatus();
+      }

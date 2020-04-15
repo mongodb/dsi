@@ -1,0 +1,57 @@
+task_name: bestbuy_agg
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          - bestbuy_agg_query_comparison:
+              - testDbName: bestbuy
+                testCollName: products
+                useAgg: true
+                thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.mongodb_setup}}
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+pre_task:
+  - on_workload_client:
+      # Preshard the cluster if running on a sharded cluster
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.hostname}:${mongodb_setup.meta.port}
+        script: ${test_control.bestbuy_sharding_script}
+  - on_workload_client:
+      exec: |
+        # Download and install the dataset
+        # Dataset is from the BestBuy Developer API website: https://bestbuyapis.github.io/api-documentation/#overview
+        cd data || exit 1
+        curl -O --retry 10 -fsS https://s3-us-west-2.amazonaws.com/dsi-donot-remove/AggPerformance/bestbuyproducts.bson.gz
+        ~/bin/mongorestore --numInsertionWorkersPerCollection=8 --bypassDocumentValidation --quiet -h "${mongodb_setup.meta.hostname}" --port="${mongodb_setup.meta.port}" --gzip --archive=bestbuyproducts.bson.gz || exit 1 $?
+        ~/bin/mongo --host "${mongodb_setup.meta.hostname}" --port="${mongodb_setup.meta.port}" --eval 'db.getSiblingDB("bestbuy").products.getShardDistribution()'
+
+post_task:
+  exec: |
+    rm data/bestbuy* # Cleanup download files.
+  exec_mongo_shell:
+    connection_string: ${mongodb_setup.meta.hostname}:${mongodb_setup.meta.port}
+    script: |
+      if ("${mongodb_setup.meta.is_sharded}" == "True") {
+        // re-enable the balancer
+        assert.commandWorked(sh.setBalancerState(true));
+        db.printShardingStatus();
+      }
+
+thread_levels:
+  standalone: [1, 8]
+  single-replica: [1, 8]
+  replica: [1, 8]
+  atlas-like-replica: [1, 8]
+  shard: [1, 8]
+  shard-lite: [1, 8, 16]

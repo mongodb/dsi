@@ -1,0 +1,113 @@
+task_name: ycsb-secondary-reads
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ycsb_load
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb load mongodb -s
+      -P ../../workloadEvergreen
+      -threads ${test_control.thread_levels.load};
+    config_filename: workloadEvergreen
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&readPreference=secondary
+      // This way to set readPreference is deprecated in Java driver but in case YCSB uses an older version
+      mongodb.readPreference=secondary
+      recordcount=5000000
+      operationcount=20000000
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=1.0
+      updateproportion=0.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=uniform
+
+  - id: ycsb_100read_secondary_reads
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s
+      -P ../../workloadEvergreen_100read
+      -threads ${test_control.thread_levels.level100-0};
+    config_filename: workloadEvergreen_100read
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&readPreference=secondary
+      // This way to set readPreference is deprecated in Java driver but in case YCSB uses an older version
+      mongodb.readPreference=secondary
+      recordcount=5000000
+      operationcount=20000000
+      maxexecutiontime=1200
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=1.0
+      updateproportion=0.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=uniform
+
+  - id: ycsb_95read5update_secondary_reads
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s
+      -P ../../workloadEvergreen_95read5update
+      -threads ${test_control.thread_levels.level95-5};
+    config_filename: workloadEvergreen_95read5update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&readPreference=secondary
+      // This way to set readPreference is deprecated in Java driver but in case YCSB uses an older version
+      mongodb.readPreference=secondary
+      recordcount=5000000
+      operationcount=20000000
+      maxexecutiontime=1200
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.95
+      updateproportion=0.05
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=uniform
+
+  - id: ycsb_50read50update_secondary_reads
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s
+      -P ../../workloadEvergreen_50read50update
+      -threads ${test_control.thread_levels.level50-50};
+    config_filename: workloadEvergreen_50read50update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}&readPreference=secondary
+      // This way to set readPreference is deprecated in Java driver but in case YCSB uses an older version
+      mongodb.readPreference=secondary
+      recordcount=5000000
+      operationcount=20000000
+      maxexecutiontime=1200
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.5
+      updateproportion=0.5
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=uniform
+
+thread_levels:
+  load: 32
+  level100-0: 32
+  level50-50: 32
+  level95-5: 32
+
+
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false
+
+pre_task:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_shell_url}
+        # Shard the YCSB cluster if sharding is enabled
+        script: ${test_control.ycsb_sharding_script}
+

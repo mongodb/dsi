@@ -1,0 +1,23 @@
+tfvars:
+  cluster_name: shard-lite
+
+  mongod_instance_count: 0
+  mongod_ebs_instance_count: 4
+  mongod_ebs_instance_type: c3.8xlarge
+  mongod_ebs_size: 320
+  mongod_ebs_iops: 5500
+
+  mongos_instance_count: 2
+  mongos_instance_type: c3.8xlarge
+
+  configsvr_instance_count: 1
+  configsvr_instance_type: m5.xlarge
+
+  workload_instance_count: 1
+  workload_instance_type: c3.8xlarge
+
+  region: eu-west-1
+  availability_zone: eu-west-1a
+
+  tags:
+    expire-on-delta: 4      # adjust expire_on to now + expire-on-delta hours

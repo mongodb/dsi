@@ -1,0 +1,20 @@
+tfvars:
+  cluster_name: test-cluster
+  mongod_instance_count: 15
+  mongos_instance_count: 3
+  configsvr_instance_count: 5
+  workload_instance_count: 1
+
+  mongod_instance_type: c3.8xlarge
+  configsvr_instance_type: m3.4xlarge
+  mongos_instance_type: c3.8xlarge
+  workload_instance_type: c3.8xlarge
+
+  region: us-west-2
+  availability_zone: us-west-2b
+  ssh_user: server-perf-team
+  ssh_key: server-perf-team-ssh-key
+  ssh_key_file: ../../keys/aws.pem
+  tags:
+    expire-on-delta: 3
+    Project: sys-perf

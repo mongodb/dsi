@@ -1,0 +1,15 @@
+# Shared by all mongods
+mongod_config_file:
+  storage:
+    engine: wiredTiger
+    id: hello
+
+topology:
+  - cluster_type: standalone
+    private_ip: 1
+    owner: ${bootstrap.owner}
+
+# Meta data about this mongodb setup
+meta:
+  port: 27017
+  test: data

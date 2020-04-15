@@ -1,0 +1,6 @@
+task_name: insert_remove
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: InsertRemove
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/scale/InsertRemove.yml

@@ -1,0 +1,207 @@
+# Defaults for all config values used by Distributed Performance 2.0 modules.
+# Note: This file is read by dsi/dsi/commmon/config.py. Don't mess with it.
+
+bootstrap:
+  infrastructure_provisioning: single
+  platform: linux
+  mongodb_setup: standalone
+  storageEngine: wiredTiger
+  test_control: benchRun
+  production: false
+
+infrastructure_provisioning:
+  tfvars:
+    mongod_instance_count: 1
+    workload_instance_count: 1
+
+    mongod_instance_type: c3.8xlarge
+    workload_instance_type: c3.8xlarge
+
+    region: us-west-2
+    availability_zone: us-west-2a
+
+    ssh_user: ec2-user
+    ssh_key_name: serverteam-perf-ssh-key
+    ssh_key_file: aws_ssh_key.pem
+
+    tags:
+      expire-on-delta: 2     # adjust expire_on to now + expire-on-delta hours
+      owner: perf-terraform-alerts@10gen.com
+      Project: sys-perf
+  numactl_prefix: numactl --interleave=all --cpunodebind=1
+
+mongodb_setup:
+  mongo_dir: mongodb
+  journal_dir: /media/ephemeral1/journal
+  clean_db_dir: true
+
+  mongod_config_file:  # Note these defaults can be overridden by user, but not unset.
+    net:
+      port: 27017
+      bindIp: 0.0.0.0
+    processManagement:
+      fork: true
+    replication:
+      oplogSizeMB: 153600   # 150GB oplog
+    setParameter:
+      enableTestCommands: 1
+    storage:
+      dbPath: data/dbs
+      engine: wiredTiger
+    systemLog:
+      destination: file
+      path: data/logs/mongod.log
+
+  mongos_config_file:
+    net:
+      port: 27017
+      bindIp: 0.0.0.0
+    processManagement:
+      fork: true
+    setParameter:
+      enableTestCommands: 1
+    systemLog:
+      destination: file
+      path: data/logs/mongos.log
+
+  rs_conf:
+    settings:
+      chainingAllowed: false
+
+  configsvr_config_file:
+    net:
+      port: 27017
+      bindIp: 0.0.0.0
+    processManagement:
+      fork: true
+    setParameter:
+      enableTestCommands: 1
+    storage:
+      dbPath: data/dbs
+      engine: wiredTiger
+    systemLog:
+      destination: file
+      path: data/logs/mongod.log
+
+  topology:
+    - cluster_type: standalone
+      public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+      private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+
+  meta:
+    # The list of hosts that can be used in a mongodb connection string
+    hosts: ${mongodb_setup.topology.0.private_ip}:27017
+    is_sharded: false
+    is_replset: false
+    secondary: null
+
+    # Number of primaries in the cluster. For non-sharded this
+    # should be 1. For sharded will be the number of shards.
+    primaries: 1
+    secondaries: 0  # Secondaries per shard
+
+  post_task:
+    - on_all_servers:
+        retrieve_files:
+          src: data/logs/
+          dest: ./
+    - on_mongod:
+        retrieve_files:
+          src: data/dbs/diagnostic.data
+          dest: ./diagnostic.data
+    - on_configsvr:
+        retrieve_files:
+          src: data/dbs/diagnostic.data
+          dest: ./diagnostic.data
+
+test_control:
+  jstests_dir: ./jstests/hooks
+  mc:
+    monitor_interval: 1
+    per_thread_stats: "yes"
+  common_fio_config: |
+    [global]
+    directory=./data/fio
+    filename_format=fiofile.$jobnum.$filenum
+    size=1G
+    runtime=120
+    time_based
+    group_reporting
+    ioengine=libaio
+    direct=1
+
+    [setupfiles]
+    stonewall
+    filesize=1G
+    nrfiles=16
+    filename_format=fiofile.$filenum.0
+    rw=randrw
+    numjobs=1
+    runtime=1
+
+    [latency_test]
+    stonewall
+    description=This is for random read and write latency. 1 at a time
+    rw=randrw
+    numjobs=1
+    bs=1
+    ioengine=sync
+    direct=0
+    filesize=1G
+    nrfiles=16
+    filename_format=fiofile.$filenum.0
+    write_bw_log=fiolatency
+    write_lat_log=fiolatency
+    write_iops_log=fiolatency
+
+    [iops_test]
+    stonewall
+    description=How many iops can I sustain in parallel
+    rw=randrw
+    numjobs=32
+    bs=4k
+    iodepth=32
+    write_bw_log=fioiops
+    write_lat_log=fioiops
+    write_iops_log=fioiops
+
+    [streaming_bandwidth_test]
+    stonewall
+    description=Measure streaming bandwidth
+    rw=rw
+    numjobs=16
+    bs=16k
+    iodepth=32
+    write_bw_log=fiostreaming
+    write_lat_log=fiostreaming
+    write_iops_log=fiostreaming
+
+  common_fio_net_config: |
+    [global]
+    ioengine=net
+    port=27019
+    protocol=tcp
+    bs=4k
+    size=1g
+    runtime=20
+    time_based
+    pingpong=1
+
+    [sender]
+    hostname=${mongodb_setup.meta.hostname}
+    rw=write
+
+  common_fio_net_config_listener: |
+    [global]
+    ioengine=net
+    port=27019
+    protocol=tcp
+    bs=4k
+    size=1g
+    runtime=40
+    time_based
+    pingpong=1
+
+    [receiver]
+    listen
+    rw=read

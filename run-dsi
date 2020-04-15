@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+set -eou pipefail
+_pip() {
+    /usr/bin/env python3.7 -m pip "$@" --isolated -q -q
+}
+
+pushd "$(dirname "$0")" >/dev/null
+    DIR="$(pwd -P)"
+popd >/dev/null
+
+
+
+if [[ $# -lt 1 ]]; then
+    echo -e "Usage: \\n\\t$0 setup\\n\\t$0 command" >/dev/stderr
+    exit 5
+fi
+
+# Check for dsi-setup-done which we create at the end of setup.
+# This prevents half-setup environments.
+if [[ ! -d "${DIR}/dsi_venv" || ! -e "${DIR}/dsi_venv/dsi-setup-done" ]]; then
+    export PATH="/opt/mongodbtoolchain/v3/bin:$PATH"
+    rm -rf "${DIR}/dsi_venv"
+
+    python3.7 -m venv "${DIR}/dsi_venv"
+
+    set +u
+        # shellcheck source=/dev/null
+        source "${DIR}/dsi_venv/bin/activate"
+    set -u
+
+    # Install DSI requirements
+    _pip install -r "${DIR}/requirements.txt"
+
+    # This script runs in the work directory.
+    _pip freeze > "../pip-requirements.txt" 2>/dev/null
+
+    # Record that we've done setup at the current git sha.
+    # (Don't use the sha for nwo but might in the future to determine
+    # if we need to run pip install again or something.)
+    pushd "${DIR}" >/dev/null
+        git rev-parse HEAD > "${DIR}/dsi_venv/dsi-setup-done"
+    popd >/dev/null
+fi
+
+if [[ "$1" == "setup" ]]; then
+    exit 0
+fi
+
+function is_evergreen_command() {
+    local command="$1"
+    if [[ "$command" == "analysis"  || \
+          "$command" == "bootstrap" || \
+          "$command" == "infrastructure_provisioning" || \
+          "$command" == "infrastructure_teardown" || \
+          "$command" == "mongodb_setup" || \
+          "$command" == "test_control" || \
+          "$command" == "workload_setup" || \
+          "$command" == "conn" || \
+          "$command" == "alias" || \
+          "$command" == "deploy_cluster" || \
+          "$command" == "setup" ]]; then
+        echo true
+        return
+    fi
+    echo false
+}
+
+
+# Don't care about invocations that want python.
+if [[ "$1" == "python" ]]; then
+    shift
+fi
+
+declare -a COMMAND
+COMMAND=("$@")
+
+# Work around old invocations that used to assume the paths of various
+# DSI scripts. Just normalize ../foo/whatever..//../analysis.py to just analysis
+if [[ "${COMMAND[0]}" =~ \.py$ ]]; then
+    COMMAND_BASE_NAME="$(basename "${COMMAND[0]}" ".py")"
+    if [[ "$(is_evergreen_command "${COMMAND_BASE_NAME}")" == "true" ]]; then
+        COMMAND=("$COMMAND_BASE_NAME" "${COMMAND[@]:1}")
+    fi
+fi
+
+# If we're a known command:
+if [[ "$(is_evergreen_command "${COMMAND[0]}")" == "true" ]]; then
+    # run known commands as 'python dsi/command.py'
+    COMMAND=("python" "${DIR}/dsi/${COMMAND[0]}.py" "${COMMAND[@]:1}")
+# Else assume we're trying to run a local file (e.g. testscripts). Fail if doesn't exist.
+elif [[ ! -e "${COMMAND[0]}" ]]; then
+    echo "$1 not an evergreen command and file '$PWD/${COMMAND[0]}' does not exist." > /dev/stderr
+    exit 1
+fi
+
+export VIRTUAL_ENV_DISABLE_PROMPT=1  # prevent undefined $PS1 variable
+# shellcheck source=/dev/null
+source "${DIR}/dsi_venv/bin/activate"
+
+PYTHONPATH="${DIR}" /usr/bin/env "${COMMAND[@]}"

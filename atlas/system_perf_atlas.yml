@@ -1,0 +1,753 @@
+stepback: false
+command_type: system
+
+pre:
+
+post:
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: |
+          make_artifact.sh
+    - command: s3.put
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: work/dsi-artifacts.tgz
+        remote_file: ${project}/${build_variant}/${revision}/${task_id}/${version_id}/logs/dsi-artifacts-${task_name}-${build_id}-${execution}.${ext|tgz}
+        bucket: mciuploads
+        permissions: public-read
+        content_type: ${content_type|application/x-gzip}
+        display_name: Dsi Artifacts - Execution ${execution}
+    - command: s3.put
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: src/workloads/workloads/jsdoc/jsdocs-redirect.html
+        remote_file: ${project}/${build_variant}/${revision}/${task_id}/${version_id}/logs/workloads-${task_name}-${build_id}.html
+        bucket: mciuploads
+        permissions: public-read
+        content_type: text/html
+        display_name: workloads documentation
+    - command: attach.results
+      params:
+        file_location: work/report.json
+    - command: "json.send"
+      params:
+         name: "perf"
+         file: "work/perf.json"
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: ../src/run-dsi infrastructure_teardown
+
+functions:
+  "prepare environment":
+    - command: shell.exec
+      params:
+        script: |
+          rm -rf ./*
+          mkdir src
+          mkdir work
+    - command: manifest.load
+    - command: git.get_project
+      params:
+        directory: src
+        revisions: # for each module include revision as <module_name> : ${<module_name>_rev}
+          workloads: ${workloads_rev}
+          genny: ${genny_rev}
+          linkbench: ${linkbench_rev}
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: |
+          cat > bootstrap.yml <<EOF
+          infrastructure_provisioning: workload_client
+          platform: linux
+          mongodb_setup: atlas
+          test_control: ${test}
+          production: true
+          overrides:
+            mongodb_setup:
+              atlas:
+                setup: ${atlas_setup}
+            workload_setup:
+              local_repos:
+                workloads: ../src/workloads/workloads
+                ycsb: ../src/YCSB/YCSB
+                linkbench: ../src/linkbench/linkbench
+                tpcc: ../src/tpcc/tpcc
+                genny: ../src/genny/genny
+          EOF
+
+          cat > runtime.yml <<EOF
+          # evergreen default expansions
+          branch_name: ${branch_name}
+          build_id: ${build_id}
+          build_variant: ${build_variant}
+          execution: ${execution}
+          is_patch: ${is_patch|false}
+          order: ${revision_order_id}
+          project: ${project}
+          project_dir: ${project_dir}
+          revision: ${revision}
+          task_id: ${task_id}
+          task_name: ${task_name}
+          version_id: ${version_id}
+          workdir: ${workdir}
+
+          # sys-perf expansions
+          # Shouldn't be needed: testList: ${testList}
+          ext: ${ext}
+          script_flags : ${script_flags}
+          dsi_rev: ${dsi_rev}
+          workloads_rev: ${workloads_rev}
+          linkbench_rev: ${linkbench_rev}
+          EOF
+
+    - command: shell.exec
+      params:
+        silent: true
+        working_dir: work
+        script: |
+          # AWS ssh secret key
+          echo "${ec2_pem}" > aws_ssh_key.pem
+          chmod 400 aws_ssh_key.pem
+
+          cat > runtime_secret.yml <<EOF
+          # Note that inside system_perf.yml we have ${aws_key} & ${aws_secret}, which are used for
+          # Evergreen resources. The below are used for dsi resources, and are NOT the same!
+          aws_access_key: "${terraform_key}"
+          aws_secret_key: "${terraform_secret}"
+          perf_jira_user: "${perf_jira_user}"
+          perf_jira_pw: "${perf_jira_pw}"
+          dsi_analysis_atlas_user: "${dsi_analysis_atlas_user}"
+          dsi_analysis_atlas_pw: "${dsi_analysis_atlas_pw}"
+          atlas_api_public_key: "${atlas_api_public_key}"
+          atlas_api_private_key: "${atlas_api_private_key}"
+          atlas_database_user: "${atlas_database_user}"
+          atlas_database_password: "${atlas_database_password}"
+          EOF
+          chmod 400 runtime_secret.yml
+    - command: expansions.write
+      params:
+        file: work/expansions.yml
+    - command: shell.exec
+      params:
+        working_dir: work
+        script:  ../src/run-dsi bootstrap
+    # Different work directory due to historical reasons
+    - command: shell.exec
+      params:
+        script: ls -a work
+
+  "deploy cluster":
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: |
+          ../src/run-dsi infrastructure_provisioning
+          ../src/run-dsi workload_setup
+          ../src/run-dsi mongodb_setup
+
+  "run test":
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: work
+        script:
+          ../src/run-dsi test_control
+    - command: "json.send"
+      params:
+         name: "perf"
+         file: "work/perf.json"
+
+  "analyze":
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: work
+        script: |
+          ../src/run-dsi analysis
+          # detect outliers needs to run, so defer the post_run_check exit status to later
+          echo $? > post_run_check.status
+    - command: shell.exec
+      params:
+        working_dir: work
+        silent: true
+        script: |
+          set -o errexit
+
+          # Create the Evergreen API credentials
+          cat > .evergreen.yml <<END_OF_CREDS
+          api_server_host: https://evergreen.mongodb.com/api
+          api_key: "${evergreen_api_key}"
+          user: "${evergreen_api_user}"
+          END_OF_CREDS
+    - command: shell.exec
+      params:
+        working_dir: work
+        script: |
+          is_patch=${is_patch}
+          task_id=${task_id}
+          perf_jira_user=${perf_jira_user}
+          perf_jira_pw=${perf_jira_pw}
+          dsi_analysis_atlas_user=${dsi_analysis_atlas_user}
+          dsi_analysis_atlas_pw=${dsi_analysis_atlas_pw}
+          evergreen_api_key=${evergreen_api_key}
+          evergreen_api_user=${evergreen_api_user}
+          source ../src/scripts/signal_processing_setup.sh
+          detect-changes --evergreen-api-config .evergreen.yml
+
+#######################################
+#               Tasks                 #
+#######################################
+
+tasks:
+- name: linkbench
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "linkbench"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: tpcc
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "tpcc"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: insert_remove
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "insert_remove"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: service_architecture_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "service_architecture_workloads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: big_update
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "big_update"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: industry_benchmarks
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "ycsb"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+      vars:
+        script_flags: --ycsb-throughput-analysis reports
+
+- name: ycsb_smoke
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "ycsb.short"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+      vars:
+        script_flags: --ycsb-throughput-analysis reports
+
+- name: genny_smoke
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "genny_canaries"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: industry_benchmarks_secondary_reads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "ycsb-secondary-reads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+      vars:
+        script_flags: --ycsb-throughput-analysis reports
+
+- name: industry_benchmarks_wmajority
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "ycsb-wmajority"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+      vars:
+        script_flags: --ycsb-throughput-analysis reports
+
+- name: crud_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "crud_workloads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: mixed_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "mixed_workloads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: misc_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "misc_workloads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: map_reduce_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "map_reduce_workloads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: smoke_test
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "short"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: retryable_writes_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "retryable_writes"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: snapshot_reads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "snapshot_reads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: secondary_reads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "secondary_reads"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: bestbuy_agg
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "bestbuy_agg"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: bestbuy_query
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "bestbuy_query"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: non_sharded_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "non_sharded"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: mongos_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "mongos"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: move_chunk_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "move_chunk"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: move_chunk_waiting_workloads
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "move_chunk_waiting"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: secondary_performance
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        # Unfortunately the dash/underscore style is different for mongodb_setup and test_control
+        test: "secondary_performance"
+        setup: "secondary-performance"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: initialsync
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "initialsync"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: initialsync-logkeeper
+  priority: 5
+  exec_timeout_secs: 216000 # 2.5 days
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "initialsync-logkeeper"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: change_streams_throughput
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "change_streams_throughput"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: change_streams_latency
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "change_streams_latency"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: change_streams_multi_mongos
+  priority: 5
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "change_streams_multi_mongos"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+- name: sysbench
+  priority: 5
+  exec_timeout_secs: 216000 # 2.5 days
+  commands:
+    - func: "prepare environment"
+      vars:
+        test: "sysbench"
+    - func: "deploy cluster"
+    - func: "run test"
+    - func: "analyze"
+
+#######################################
+#               Modules               #
+#######################################
+# if a module is added and to be added to the manifest
+# be sure to add the module to git.get_project revisions parameter
+modules:
+- name: workloads
+  repo: git@github.com:10gen/workloads.git
+  prefix: workloads
+  branch: master
+
+- name: genny
+  repo: git@github.com:mongodb/genny.git
+  prefix: genny
+  branch: master
+
+- name: linkbench
+  repo: git@github.com:10gen/linkbench.git
+  prefix: linkbench
+  branch: master
+
+#######################################
+#         Buildvariants               #
+#######################################
+
+buildvariant_templates:  # Dummy key that evergreen ignores
+- &buildvariant_template
+  name: variant-name-here
+  display_name: Variant Name Here
+  # 10 years. The intent is to only schedule Atlas tests manually when needed.
+  batchtime: 5256000
+  modules: &modules
+    - genny
+    - workloads
+    - linkbench
+  expansions:
+    atlas_setup: lookup-key
+  run_on:
+      - "rhel70-perf-atlas"
+  tasks: &3nodetasks
+    - name: industry_benchmarks
+    - name: industry_benchmarks_secondary_reads
+#    - name: crud_workloads
+#    - name: mixed_workloads
+#    - name: misc_workloads
+#    - name: map_reduce_workloads
+#    - name: smoke_test
+#    - name: retryable_writes_workloads
+    - name: industry_benchmarks_wmajority
+#    - name: secondary_performance
+#    - name: non_sharded_workloads
+#    - name: bestbuy_agg
+#    - name: bestbuy_query
+#    - name: change_streams_throughput
+#    - name: change_streams_latency
+#    - name: snapshot_reads
+#    - name: secondary_reads
+    - name: linkbench
+    - name: insert_remove
+    - name: big_update
+    - name: tpcc
+    - name: service_architecture_workloads
+    - name: ycsb_smoke
+    - name: genny_smoke
+#    - name: sysbench
+
+- &large_buildvariant_template
+  <<: *buildvariant_template
+  run_on:
+    - "rhel70-perf-atlas-large"
+
+- &xlarge_buildvariant_template
+  <<: *buildvariant_template
+  run_on:
+    - "rhel70-perf-atlas-xlarge"
+
+buildvariants:
+- <<: *buildvariant_template
+  name: M10-atlas-repl
+  display_name: M10 Atlas ReplSet
+  expansions:
+    atlas_setup: M10-repl
+
+- <<: *buildvariant_template
+  name: M20-atlas-repl
+  display_name: M20 Atlas ReplSet
+  expansions:
+    atlas_setup: M20-repl
+
+- <<: *buildvariant_template
+  name: M30-atlas-repl
+  display_name: M30 Atlas ReplSet
+  expansions:
+    atlas_setup: M30-repl
+
+- <<: *buildvariant_template
+  name: M40-atlas-repl
+  display_name: M40 Atlas ReplSet
+  expansions:
+    atlas_setup: M40-repl
+
+- <<: *large_buildvariant_template
+  name: M50-atlas-repl
+  display_name: M50 Atlas ReplSet
+  expansions:
+    atlas_setup: M50-repl
+
+- <<: *large_buildvariant_template
+  name: M60-atlas-repl
+  display_name: M60 Atlas ReplSet
+  expansions:
+    atlas_setup: M60-repl
+
+- <<: *large_buildvariant_template
+  name: M100-atlas-repl
+  display_name: M100 Atlas ReplSet
+  expansions:
+    atlas_setup: M100-repl
+
+# - <<: *xlarge_buildvariant_template
+#   name: M140-atlas-repl
+#   display_name: M140 Atlas ReplSet
+#   expansions:
+#     atlas_setup: M140-repl
+
+- <<: *xlarge_buildvariant_template
+  name: M200-atlas-repl
+  display_name: M200 Atlas ReplSet
+  expansions:
+    atlas_setup: M200-repl
+
+- <<: *xlarge_buildvariant_template
+  name: M300-atlas-repl
+  display_name: M300 Atlas ReplSet
+  expansions:
+    atlas_setup: M300-repl
+
+# Note: This is not obvious in the UI, but if you look closely you see that M400 doesn't exist
+# at all in the "General" variation, rather only the M400_NVMe and R400 exist.
+
+
+- <<: *buildvariant_template
+  name: R40-atlas-repl
+  display_name: R40 Atlas ReplSet
+  expansions:
+    atlas_setup: R40-repl
+
+- <<: *large_buildvariant_template
+  name: R50-atlas-repl
+  display_name: R50 Atlas ReplSet
+  expansions:
+    atlas_setup: R50-repl
+
+- <<: *large_buildvariant_template
+  name: R60-atlas-repl
+  display_name: R60 Atlas ReplSet
+  expansions:
+    atlas_setup: R60-repl
+
+- <<: *large_buildvariant_template
+  name: R80-atlas-repl
+  display_name: R80 Atlas ReplSet
+  expansions:
+    atlas_setup: R80-repl
+
+- <<: *xlarge_buildvariant_template
+  name: R200-atlas-repl
+  display_name: R200 Atlas ReplSet
+  expansions:
+    atlas_setup: R200-repl
+
+# - <<: *xlarge_buildvariant_template
+#   name: R300-atlas-repl
+#   display_name: R300 Atlas ReplSet
+#   expansions:
+#     atlas_setup: R300-repl
+
+- <<: *xlarge_buildvariant_template
+  name: R400-atlas-repl
+  display_name: R400 Atlas ReplSet
+  expansions:
+    atlas_setup: R400-repl
+
+# - <<: *xlarge_buildvariant_template
+#   name: R700-atlas-repl
+#   display_name: R700 Atlas ReplSet
+#   expansions:
+#     atlas_setup: R700-repl
+
+- <<: *buildvariant_template
+  name: M40-nvme-atlas-repl
+  display_name: M40 Atlas NVME ReplSet
+  expansions:
+    atlas_setup: M40_NVME-repl
+
+- <<: *large_buildvariant_template
+  name: M50-nvme-atlas-repl
+  display_name: M50 NVMe Atlas ReplSet
+  expansions:
+    atlas_setup: M50_NVME-repl
+
+- <<: *large_buildvariant_template
+  name: M60-atlas-NVME-repl
+  display_name: M60 NVMe Atlas ReplSet
+  expansions:
+    atlas_setup: M60_NVME-repl
+
+- <<: *large_buildvariant_template
+  name: M80-atlas-NVME-repl
+  display_name: M80 NVMe Atlas ReplSet
+  expansions:
+    atlas_setup: M80_NVME-repl
+
+- <<: *xlarge_buildvariant_template
+  name: M200-atlas-NVME-repl
+  display_name: M200 NVMe Atlas ReplSet
+  expansions:
+    atlas_setup: M200_NVME-repl
+
+# US_EAST_1 only (which is exactly what we use)
+- <<: *xlarge_buildvariant_template
+  name: M400-atlas-NVME-repl
+  display_name: M400 NVMe Atlas ReplSet
+  expansions:
+    atlas_setup: M400_NVME-repl

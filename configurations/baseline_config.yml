@@ -1,0 +1,159 @@
+# This yaml file is for controlling the mongo-perf baseline
+# process. It contains information that needs to be updated when
+# running the baseline patch builds. This file will need to be updated
+# as new releases come out.
+#
+# mongod_links: This is the mongod builds to use. The baselines skip
+# the compile phase and directly download an existing binary.
+#
+# mongod_flags: Flags that need to be changed for older projects (not
+# supported, changed)
+#
+# mongo_shells: Fixed mongo shells to use when baselining. They should
+# be updated to recent shells on each branch before running new
+# baselines.
+
+
+# list of paths to builds to use for baselines. 3.2 and later must be enterprise builds to support inMemory
+# Note: links have to be shortened to start with perf or perf-??. If
+# you have https:// in your link, you need to remove the leading
+# characters
+mongod_links:
+  4.2.1: perf/performance_4.2_edf6d45851c0b9ee15548f0f847df141764a317e/edf6d45851c0b9ee15548f0f847df141764a317e/mongod-performance_4.2_edf6d45851c0b9ee15548f0f847df141764a317e
+  4.0.0: perf/performance_4.0_3b07af3d4f471ae89e8186d33bbb1d5259597d51/3b07af3d4f471ae89e8186d33bbb1d5259597d51/mongod-performance_4.0_3b07af3d4f471ae89e8186d33bbb1d5259597d51
+  3.6.5: perf/performance_3.6_a20ecd3e3a174162052ff99913bc2ca9a839d618/a20ecd3e3a174162052ff99913bc2ca9a839d618/mongod-performance_3.6_a20ecd3e3a174162052ff99913bc2ca9a839d618
+  3.4.15: perf-3.4/performance_3.4_52e5b5fbaa3a2a5b1a217f5e647b5061817475f9/52e5b5fbaa3a2a5b1a217f5e647b5061817475f9/mongod-performance_3.4_52e5b5fbaa3a2a5b1a217f5e647b5061817475f9
+  3.4.13: perf-3.4/performance_3.4_fbdef2ccc53e0fcc9afb570063633d992b2aae42/fbdef2ccc53e0fcc9afb570063633d992b2aae42/mongod-performance_3.4_fbdef2ccc53e0fcc9afb570063633d992b2aae42
+  3.4.9: perf-3.4/performance_3.4_876ebee8c7dd0e2d992f36a848ff4dc50ee6603e/876ebee8c7dd0e2d992f36a848ff4dc50ee6603e/mongod-performance_3.4_876ebee8c7dd0e2d992f36a848ff4dc50ee6603e
+  3.4.2: perf-3.4/performance_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b/3f76e40c105fc223b3e5aac3e20dcd026b83b38b/mongod-performance_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b
+  3.4.1: perf-3.4/performance_3.4_5e103c4f5583e2566a45d740225dc250baacfbd7/5e103c4f5583e2566a45d740225dc250baacfbd7/mongod-performance_3.4_5e103c4f5583e2566a45d740225dc250baacfbd7
+  3.4.0: perf-3.4/585163183ff122031e0003e5/f4240c60f005be757399042dc12f6addbc3170c1/mongod-585163183ff122031e0003e5
+  3.2.20: perf-3.2/performance_3.2_a7a144f40b70bfe290906eb33ff2714933544af8/a7a144f40b70bfe290906eb33ff2714933544af8/mongod-performance_3.2_a7a144f40b70bfe290906eb33ff2714933544af8
+  3.2.19: perf-3.2/performance_3.2_a9f574de6a566a58b24d126b44a56718d181e989/a9f574de6a566a58b24d126b44a56718d181e989/mongod-performance_3.2_a9f574de6a566a58b24d126b44a56718d181e989
+  3.2.17: perf-3.2/performance_3.2_186656d79574f7dfe0831a7e7821292ab380f667/186656d79574f7dfe0831a7e7821292ab380f667/mongod-performance_3.2_186656d79574f7dfe0831a7e7821292ab380f667
+  3.2.12: perf-3.2/performance_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/mongod-performance_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14
+  3.2.11: perf-3.2/585147523ff122031e000295/009580ad490190ba33d1c6253ebd8d91808923e4/mongod-585147523ff122031e000295  # Patch build
+  3.2.10: perf-3.2/5825260c3ff1227828006b38/79d9b3ab5ce20f51c272b4411202710a082d0317/mongod-5825260c3ff1227828006b38
+  3.0.15: perf-3.0/performance_3.0_b8ff507269c382bc100fc52f75f48d54cd42ec3b/b8ff507269c382bc100fc52f75f48d54cd42ec3b/mongod-performance_3.0_b8ff507269c382bc100fc52f75f48d54cd42ec3b
+  3.0.14: perf-3.0/582526d23ff1227828006b48/08352afcca24bfc145240a0fac9d28b978ab77f3/mongod-582526d23ff1227828006b48
+
+mongod_flags:
+  '3.0':  # Need to quote version if only one period
+    - pattern: --setParameter diagnosticDataCollectionEnabled=false
+      replace: ""
+    - pattern: --storageEngine=inMemory
+      replace: --storageEngine=wiredTiger
+    - pattern: --inMemorySizeGB
+      replace: --wiredTigerCacheSizeGB
+    - pattern: "--inMemoryEngineConfigString"
+      replace: "--wiredTigerEngineConfigString"
+
+# These shell versions should be updated to something recent when reused.
+mongo_shells:
+  performance: perf/performance_51cb15e996714418004016473ae3ce08c46455e7/51cb15e996714418004016473ae3ce08c46455e7/mongo-performance_51cb15e996714418004016473ae3ce08c46455e7
+  performance-4.2: perf/performance_4.2_edf6d45851c0b9ee15548f0f847df141764a317e/edf6d45851c0b9ee15548f0f847df141764a317e/mongo-performance_4.2_edf6d45851c0b9ee15548f0f847df141764a317e
+  performance-4.0: perf/performance_4.0_b7ae2f196e132302fbd409bd6024a1f5063da2f0/b7ae2f196e132302fbd409bd6024a1f5063da2f0/mongo-performance_4.0_b7ae2f196e132302fbd409bd6024a1f5063da2f0
+  performance-3.6: perf/performance_3.6_3b1d9e47493ca10fb99899cd5aa4a792249330c0/3b1d9e47493ca10fb99899cd5aa4a792249330c0/mongo-performance_3.6_3b1d9e47493ca10fb99899cd5aa4a792249330c0
+  performance-3.4: perf-3.4/performance_3.4_0d6a9242c11b99ddadcfb6e86a850b6ba487530a/0d6a9242c11b99ddadcfb6e86a850b6ba487530a/mongo-performance_3.4_0d6a9242c11b99ddadcfb6e86a850b6ba487530a
+  performance-3.2: perf-3.2/performance_3.2_ed5dccdc3ffe74a869c04ee31c61e61da0b0d0c3/ed5dccdc3ffe74a869c04ee31c61e61da0b0d0c3/mongo-performance_3.2_ed5dccdc3ffe74a869c04ee31c61e61da0b0d0c3
+  performance-3.0: perf-3.0/performance_3.0_9606f607a9c556fed25a8025e0945e7f8b60d494/9606f607a9c556fed25a8025e0945e7f8b60d494/mongo-performance_3.0_9606f607a9c556fed25a8025e0945e7f8b60d494
+
+sysperf_mongod_links:
+  4.1.13: https://s3.amazonaws.com/mciuploads/dsi/5d39eae97742ae4a8d039222/441714bc4c70699950f3ac51a5cac41dcd413eaa/linux/mongodb${compile-variant|}-5d39eae97742ae4a8d039222.tar.gz
+  4.0.11: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_4.0_417d1a712e9f040d54beca8e4943edce218e9a8c/417d1a712e9f040d54beca8e4943edce218e9a8c/linux/mongodb${compile_variant|}-sys_perf_4.0_417d1a712e9f040d54beca8e4943edce218e9a8c.tar.gz
+  4.0.4: https://s3.amazonaws.com/mciuploads/dsi/5bf566efe3c33109cf6dceae/f288a3bdf201007f3693c58e140056adf8b04839/linux/mongodb${compile-variant|}-5bf566efe3c33109cf6dceae.tar.gz
+  4.0.2: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_4.0_fc1573ba18aee42f97a3bb13b67af7d837826b47/fc1573ba18aee42f97a3bb13b67af7d837826b47/linux/mongodb-sys_perf_4.0_fc1573ba18aee42f97a3bb13b67af7d837826b47.tar.gz
+  4.0.0: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_4.0_3b07af3d4f471ae89e8186d33bbb1d5259597d51/3b07af3d4f471ae89e8186d33bbb1d5259597d51/linux/mongodb-sys_perf_4.0_3b07af3d4f471ae89e8186d33bbb1d5259597d51.tar.gz
+  3.6.13: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.6_db3c76679b7a3d9b443a0e1b3e45ed02b88c539f/db3c76679b7a3d9b443a0e1b3e45ed02b88c539f/linux/mongodb-sys_perf_3.6_db3c76679b7a3d9b443a0e1b3e45ed02b88c539f.tar.gz
+  3.6.9: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.6_167861a164723168adfaaa866f310cb94010428f/167861a164723168adfaaa866f310cb94010428f/linux/mongodb-sys_perf_3.6_167861a164723168adfaaa866f310cb94010428f.tar.gz
+  3.6.7: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.6_2628472127e9f1826e02c665c1d93880a204075e/2628472127e9f1826e02c665c1d93880a204075e/linux/mongodb-sys_perf_3.6_2628472127e9f1826e02c665c1d93880a204075e.tar.gz
+  3.6.5: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.6_a20ecd3e3a174162052ff99913bc2ca9a839d618/a20ecd3e3a174162052ff99913bc2ca9a839d618/linux/mongod-sys_perf_3.6_a20ecd3e3a174162052ff99913bc2ca9a839d618.tar.gz
+  3.6.1: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.6_025d4f4fe61efd1fb6f0005be20cb45a004093d1/025d4f4fe61efd1fb6f0005be20cb45a004093d1/linux/mongod-sys_perf_3.6_025d4f4fe61efd1fb6f0005be20cb45a004093d1.tar.gz
+  3.6.0: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.6_a57d8e71e6998a2d0afde7edc11bd23e5661c915/a57d8e71e6998a2d0afde7edc11bd23e5661c915/linux/mongod-sys_perf_3.6_a57d8e71e6998a2d0afde7edc11bd23e5661c915.tar.gz
+  3.4.21: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.4_ba2e818de44c9a331ce09a624780a2bd841cf6e4/ba2e818de44c9a331ce09a624780a2bd841cf6e4/linux/mongodb-sys_perf_3.4_ba2e818de44c9a331ce09a624780a2bd841cf6e4.tar.gz
+  3.4.18: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.4_4410706bef6463369ea2f42399e9843903b31923/4410706bef6463369ea2f42399e9843903b31923/linux/mongodb-sys_perf_3.4_4410706bef6463369ea2f42399e9843903b31923.tar.gz
+  3.4.17: https://s3.amazonaws.com/mciuploads/dsi/sys_perf_3.4_7c14a47868643bb691a507a92fe25541f998eca4/7c14a47868643bb691a507a92fe25541f998eca4/linux/mongodb-sys_perf_3.4_7c14a47868643bb691a507a92fe25541f998eca4.tar.gz
+  3.4.15: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_52e5b5fbaa3a2a5b1a217f5e647b5061817475f9/52e5b5fbaa3a2a5b1a217f5e647b5061817475f9/linux/mongod-sys_perf_3.4_52e5b5fbaa3a2a5b1a217f5e647b5061817475f9.tar.gz
+  3.4.14: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_fd954412dfc10e4d1e3e2dd4fac040f8b476b268/fd954412dfc10e4d1e3e2dd4fac040f8b476b268/linux/mongod-sys_perf_3.4_fd954412dfc10e4d1e3e2dd4fac040f8b476b268.tar.gz
+  3.4.10: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_8da0afc67851b39fd6cda03f9dd225445031cb7d/8da0afc67851b39fd6cda03f9dd225445031cb7d/linux/mongod-sys_perf_3.4_8da0afc67851b39fd6cda03f9dd225445031cb7d.tar.gz
+  3.4.9: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_876ebee8c7dd0e2d992f36a848ff4dc50ee6603e/876ebee8c7dd0e2d992f36a848ff4dc50ee6603e/linux/mongod-sys_perf_3.4_876ebee8c7dd0e2d992f36a848ff4dc50ee6603e.tar.gz
+  3.4.6: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_d915259708b79fd7394aa8de9779520710d2bbe7/d915259708b79fd7394aa8de9779520710d2bbe7/linux/mongod-sys_perf_3.4_d915259708b79fd7394aa8de9779520710d2bbe7.tar.gz
+  3.4.5: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_520b8f3092c48d934f0cd78ab5f40fe594f96863/520b8f3092c48d934f0cd78ab5f40fe594f96863/linux/mongod-sys_perf_3.4_520b8f3092c48d934f0cd78ab5f40fe594f96863.tar.gz
+  3.4.4: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_888390515874a9debd1b6c5d36559ca86b44babd/888390515874a9debd1b6c5d36559ca86b44babd/linux/mongod-sys_perf_3.4_888390515874a9debd1b6c5d36559ca86b44babd.tar.gz
+  3.4.2: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b/3f76e40c105fc223b3e5aac3e20dcd026b83b38b/linux/mongod-sys_perf_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b.tar.gz
+  3.2.22: https://s3.amazonaws.com/mciuploads/dsi/5d4040bec9ec4456b0e9b455/f39bb1d0922ae02942c86fe443e795d9de866279/linux/mongodb-5d4040bec9ec4456b0e9b455.tar.gz
+  3.2.21: https://s3.amazonaws.com/mciuploads/dsi/5bfcac512a60ed72f388bc90/1ab1010737145ba3761318508ff65ba74dfe8155/linux/mongodb-5bfcac512a60ed72f388bc90.tar.gz
+  3.2.20: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_a7a144f40b70bfe290906eb33ff2714933544af8/a7a144f40b70bfe290906eb33ff2714933544af8/linux/mongod-sys_perf_3.2_a7a144f40b70bfe290906eb33ff2714933544af8.tar.gz
+  3.2.17: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_32c4fbbb2241c421f7cec16c8bd84ace21c6e99f/32c4fbbb2241c421f7cec16c8bd84ace21c6e99f/linux/mongod-sys_perf_3.2_32c4fbbb2241c421f7cec16c8bd84ace21c6e99f.tar.gz
+  3.2.15: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_e11e3c1b9c9ce3f7b4a79493e16f5e4504e01140/e11e3c1b9c9ce3f7b4a79493e16f5e4504e01140/linux/mongod-sys_perf_3.2_e11e3c1b9c9ce3f7b4a79493e16f5e4504e01140.tar.gz
+  3.2.12: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/linux/mongod-sys_perf_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14.tar.gz
+  3.2.9: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_22ec9e93b40c85fc7cae7d56e7d6a02fd811088c/22ec9e93b40c85fc7cae7d56e7d6a02fd811088c/mongod-sys_perf_3.2_22ec9e93b40c85fc7cae7d56e7d6a02fd811088c.tar.gz
+
+base_projects:
+  sys-perf: sys-perf
+  sys-perf-4.2: sys-perf
+  sys-perf-4.0: sys-perf
+  sys-perf-3.6: sys-perf
+  sys-perf-3.4: sys-perf
+  sys-perf-3.2: sys-perf
+  performance: performance
+  performance-4.0: performance
+  performance-3.6: performance
+  performance-3.4: performance
+  performance-3.2: performance
+  performance-3.0: performance
+
+project_files:
+  performance: perf.yml
+  sys-perf: system_perf.yml
+
+# Tasks not to run on old versions
+disabled_tasks:
+  '3.6':
+    - initialsync-logkeeper
+    - initialsync-logkeeper-short
+    - linkbench
+    - tpcc
+  '3.4':
+    - agg_query_comparison_bestbuy
+    - bestbuy_agg
+    - bestbuy_agg_out
+    - bestbuy_query
+    - change_streams_latency
+    - change_streams_multi_mongos
+    - change_streams_throughput
+    - initialsync-logkeeper
+    - initialsync-logkeeper-short
+    - linkbench
+    - retryable_writes_workloads
+    - snapshot_reads
+    - tpcc
+  '3.2':
+    - agg_query_comparison_bestbuy
+    - bestbuy_agg
+    - bestbuy_agg_out
+    - bestbuy_query
+    - change_streams_latency
+    - change_streams_multi_mongos
+    - change_streams_throughput
+    - initialsync
+    - initialsync-logkeeper
+    - initialsync-logkeeper-short
+    - linkbench
+    - retryable_writes_workloads
+    - secondary_performance
+    - secondary_reads
+    - snapshot_reads
+    - tpcc
+    - views-aggregation
+    - views-query
+  '3.0':
+    - agg_query_comparison_bestbuy
+    - initialsync
+    - initialsync-logkeeper
+    - linkbench
+    - retryable_writes_workloads
+    - secondary_performance
+    - tpcc
+    - views-aggregation
+    - views-query

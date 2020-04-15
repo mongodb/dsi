@@ -1,0 +1,7 @@
+six
+typing==3.7.4.1
+pytz==2019.3
+black==19.10b0
+-r requirements/provisioning.txt
+-r requirements/test.txt
+-r requirements/aws_cleanup.txt

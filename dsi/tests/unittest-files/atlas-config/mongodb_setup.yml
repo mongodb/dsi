@@ -1,0 +1,16 @@
+atlas:
+  api:
+    root: https://cloud-dev.mongodb.com/api/atlas/v1.0/MOCK/URL
+    group_id: test_group_id
+  clusters:
+    - autoScaling:
+        diskGBEnabled: false
+      clusterType: REPLICASET
+      mongoDBMajorVersion: 4.0
+      numShards: 1
+      providerSettings:
+        providerName: AWS
+        regionName: US_WEST_2
+        instanceSizeName: M10
+        diskIOPS: 300
+      diskSizeGB: 100

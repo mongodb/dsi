@@ -1,0 +1,87 @@
+# This yaml file is for controlling the mongo-perf baseline
+# process. It contains information that needs to be updated when
+# running the baseline patch builds. This file will need to be updated
+# as new releases come out.
+#
+# mongod_links: This is the mongod builds to use. The baselines skip
+# the compile phase and directly download an existing binary.
+#
+# mongod_flags: Flags that need to be changed for older projects (not
+# supported, changed)
+#
+# mongo_shells: Fixed mongo shells to use when baselining. They should
+# be updated to recent shells on each branch before running new
+# baselines.
+
+
+# list of paths to builds to use for baselines. 3.2 and later must be enterprise builds to support inMemory
+# Note: links have to be shortened to start with perf or perf-??. If
+# you have https:// in your link, you need to remove the leading
+# characters
+mongod_links:
+  3.4.2: perf-3.4/performance_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b/3f76e40c105fc223b3e5aac3e20dcd026b83b38b/mongod-performance_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b
+  3.4.1: perf-3.4/performance_3.4_5e103c4f5583e2566a45d740225dc250baacfbd7/5e103c4f5583e2566a45d740225dc250baacfbd7/mongod-performance_3.4_5e103c4f5583e2566a45d740225dc250baacfbd7
+  3.4.0: perf-3.4/585163183ff122031e0003e5/f4240c60f005be757399042dc12f6addbc3170c1/mongod-585163183ff122031e0003e5
+  3.2.10: perf-3.2/5825260c3ff1227828006b38/79d9b3ab5ce20f51c272b4411202710a082d0317/mongod-5825260c3ff1227828006b38
+  3.2.11: perf-3.2/585147523ff122031e000295/009580ad490190ba33d1c6253ebd8d91808923e4/mongod-585147523ff122031e000295  # Patch build
+  3.2.12: perf-3.2/performance_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/mongod-performance_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14
+  3.0.14: perf-3.0/582526d23ff1227828006b48/08352afcca24bfc145240a0fac9d28b978ab77f3/mongod-582526d23ff1227828006b48
+
+mongod_flags:
+  '3.0':  # Need to quote version if only one period
+    - pattern: --setParameter diagnosticDataCollectionEnabled=false
+      replace: ""
+    - pattern: --storageEngine=inMemory
+      replace: --storageEngine=wiredTiger
+    - pattern: --inMemorySizeGB
+      replace: --wiredTigerCacheSizeGB
+    - pattern: "--inMemoryEngineConfigString"
+      replace: "--wiredTigerEngineConfigString"
+
+# These shell versions should be updated to something recent when reused.
+mongo_shells:
+  performance: perf/performance_4cefb2925ab1fcb951777c25d80cd2df0b9f544e/4cefb2925ab1fcb951777c25d80cd2df0b9f544e/mongo-performance_4cefb2925ab1fcb951777c25d80cd2df0b9f544e
+  performance-3.4: perf-3.4/performance_3.4_39fd7c75250da0eac3f118b2044749e7e179eb28/39fd7c75250da0eac3f118b2044749e7e179eb28/mongo-performance_3.4_39fd7c75250da0eac3f118b2044749e7e179eb28
+  performance-3.2: perf-3.2/performance_3.2_30e047e7aa8097bda5d88c5676bdd3c825d8e4ca/30e047e7aa8097bda5d88c5676bdd3c825d8e4ca/mongo-performance_3.2_30e047e7aa8097bda5d88c5676bdd3c825d8e4ca
+  performance-3.0: perf-3.0/performance_3.0_3105cafb4d712deb5cef0b6b12f137b14d2dee33/3105cafb4d712deb5cef0b6b12f137b14d2dee33/mongo-performance_3.0_3105cafb4d712deb5cef0b6b12f137b14d2dee33
+
+sysperf_mongod_links:
+  3.2.12: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14/linux/mongod-sys_perf_3.2_ef3e1bc78e997f0d9f22f45aeb1d8e3b6ac14a14.tar.gz
+  3.2.9: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_22ec9e93b40c85fc7cae7d56e7d6a02fd811088c/22ec9e93b40c85fc7cae7d56e7d6a02fd811088c/mongod-sys_perf_3.2_22ec9e93b40c85fc7cae7d56e7d6a02fd811088c.tar.gz
+  3.2.15: https://s3.amazonaws.com/mciuploads/dsi-v3.2/sys_perf_3.2_e11e3c1b9c9ce3f7b4a79493e16f5e4504e01140/e11e3c1b9c9ce3f7b4a79493e16f5e4504e01140/linux/mongod-sys_perf_3.2_e11e3c1b9c9ce3f7b4a79493e16f5e4504e01140.tar.gz
+  3.4.2: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b/3f76e40c105fc223b3e5aac3e20dcd026b83b38b/linux/mongod-sys_perf_3.4_3f76e40c105fc223b3e5aac3e20dcd026b83b38b.tar.gz
+  3.4.4: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_888390515874a9debd1b6c5d36559ca86b44babd/888390515874a9debd1b6c5d36559ca86b44babd/linux/mongod-sys_perf_3.4_888390515874a9debd1b6c5d36559ca86b44babd.tar.gz
+  3.4.5: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_520b8f3092c48d934f0cd78ab5f40fe594f96863/520b8f3092c48d934f0cd78ab5f40fe594f96863/linux/mongod-sys_perf_3.4_520b8f3092c48d934f0cd78ab5f40fe594f96863.tar.gz
+  3.4.6: https://s3.amazonaws.com/mciuploads/dsi-v3.4/sys_perf_3.4_d915259708b79fd7394aa8de9779520710d2bbe7/d915259708b79fd7394aa8de9779520710d2bbe7/linux/mongod-sys_perf_3.4_d915259708b79fd7394aa8de9779520710d2bbe7.tar.gz
+
+base_projects:
+  performance: performance
+  performance-3.0: performance
+  performance-3.2: performance
+  performance-3.4: performance
+  sys-perf: sys-perf
+  sys-perf-3.2: sys-perf
+  sys-perf-3.4: sys-perf
+
+project_files:
+  performance: perf.yml
+  sys-perf: system_perf.yml
+
+# Tasks not to run on old versions
+disabled_tasks:
+  '3.2':
+    - views-aggregation
+    - views-query
+    - initialsync_WT
+    - initialsync_MMAPv1
+    - initialsync-logkeeper_WT
+    - secondary_performance_WT
+    - secondary_performance_MMAPv1
+  '3.0':
+    - views-aggregation
+    - views-query
+    - initialsync_WT
+    - initialsync_MMAPv1
+    - initialsync-logkeeper_WT
+    - secondary_performance_WT
+    - secondary_performance_MMAPv1

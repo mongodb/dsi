@@ -1,0 +1,5 @@
+{"storageEngine":"wiredTiger", "results":[{
+ "name":"dummy_inserts", "workload":"genny_dummy_workload",
+ "start":1537815283.968272, "end":1537817860.423682,
+ "results":{"4":{"ops_per_sec":10780115, "ops_per_sec_values":[10780115]}}}]}
+

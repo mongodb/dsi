@@ -1,0 +1,33 @@
+out:
+  configsvr:
+    - private_ip: 10.2.0.81
+      public_ip: 52.38.116.84
+    - private_ip: 10.2.0.82
+      public_ip: 52.27.136.80
+    - private_ip: 10.2.0.83
+      public_ip: 52.38.65.159
+  mongod:
+    - private_ip: 10.2.0.100
+      public_ip: 52.26.155.122
+    - private_ip: 10.2.0.101
+      public_ip: 52.36.46.99
+    - private_ip: 10.2.0.102
+      public_ip: 52.32.104.182
+    - private_ip: 10.2.0.103
+      public_ip: 52.40.153.4
+    - private_ip: 10.2.0.104
+      public_ip: 52.38.108.78
+    - private_ip: 10.2.0.105
+      public_ip: 52.27.28.29
+    - private_ip: 10.2.0.106
+      public_ip: 52.26.196.125
+    - private_ip: 10.2.0.107
+      public_ip: 52.10.249.28
+    - private_ip: 10.2.0.108
+      public_ip: 52.39.130.220
+  mongos:
+    - private_ip: 10.2.0.99
+      public_ip: 52.40.159.38
+  workload_client:
+    - private_ip: 10.2.0.10
+      public_ip: 52.11.198.150

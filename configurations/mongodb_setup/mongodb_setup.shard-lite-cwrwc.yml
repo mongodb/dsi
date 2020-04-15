@@ -1,0 +1,70 @@
+# Shared by all mongods
+journal_dir: /media/ebs2/journal
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  sharding:
+    clusterRole: shardsvr
+  replication:
+    oplogSizeMB: 153600   # 150GB oplog
+
+topology:
+  - id: mycluster
+    cluster_type: sharded_cluster
+    configsvr_type: csrs
+    configsvr:
+      - public_ip: ${infrastructure_provisioning.out.configsvr.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.configsvr.0.private_ip}
+    mongos:
+      - public_ip: ${infrastructure_provisioning.out.mongos.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongos.0.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongos.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongos.1.private_ip}
+    shard:
+      - id: rs0
+        cluster_type: replset
+        mongod:
+          - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+            private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+          - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+            private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+      - id: rs1
+        cluster_type: replset
+        mongod:
+          - public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+            private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+          - public_ip: ${infrastructure_provisioning.out.mongod.3.public_ip}
+            private_ip: ${infrastructure_provisioning.out.mongod.3.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongos.0.private_ip}:27017,${mongodb_setup.topology.0.mongos.1.private_ip}:27017
+  # A single host, as in "host:port". Use the primary or first mongos
+  hostname: ${mongodb_setup.topology.0.mongos.0.private_ip}
+  port: 27017
+  is_sharded: true
+  is_replset: false
+  primaries: 2
+  secondaries: 1
+  mongodb_setup: shard-lite-cwrwc
+
+# Set the CWRWC defaults.
+pre_task:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.hostname}:27017
+        script: ${test_control.cwrwc_setup_script}
+
+# Hosts to run correctness tests on.
+validate:
+  primaries:
+    - ${mongodb_setup.topology.0.shard.0.mongod.0.private_ip}:27017
+    - ${mongodb_setup.topology.0.shard.1.mongod.0.private_ip}:27017
+    - ${mongodb_setup.topology.0.configsvr.0.private_ip}:27017

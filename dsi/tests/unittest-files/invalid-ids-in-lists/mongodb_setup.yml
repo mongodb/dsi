@@ -1,0 +1,16 @@
+# Shared by all mongods
+mongod_config_file:
+  storage:
+    engine: wiredTiger
+    id: hello
+
+topology:
+  - private_ip: 1
+  - - nested: dict
+      id: myid
+    - id: ${bootstrap.stuff}
+
+# Meta data about this mongodb setup
+meta:
+  port: 27017
+  test: data

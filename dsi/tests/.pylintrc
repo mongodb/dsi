@@ -1,0 +1,60 @@
+[MESSAGES CONTROL]
+disable=locally-disabled,
+        locally-enabled,
+        fixme,
+        duplicate-code,
+        no-name-in-module,
+
+        # The valid style of black formatting is incorrectly labeled by pylint
+        # https://github.com/PyCQA/pylint/issues/289
+        bad-continuation,
+
+        # Either need docstring or good test name but not both
+        missing-docstring,
+
+        # tests can keep whatever state they need
+        too-many-instance-attributes,
+
+        # used for @patch-ed arguments
+        unused-argument,
+
+        # handle the idea that @patch decorator is filling in a parameter
+        no-value-for-parameter,
+
+        # allow calling "private" (leading `_`) methods in tests
+        protected-access,
+
+        # don't force helper methods on test classes to be functions
+        no-self-use,
+
+        # it's useful to be able to just `catch:` for flow-control tests
+        bare-except
+
+
+[REPORTS]
+reports=no
+
+[BASIC]
+good-names=runTest,
+           setUp,
+           tearDown,
+           _,
+           i,
+           e
+
+method-rgx=[a-z_][a-z0-9_]{2,80}$
+
+[FORMAT]
+msg-template={abspath}:{line}:{column}: [{msg_id}({symbol}), {obj}] {msg}
+
+max-local-variables=20
+max-line-length=140
+max-module-lines=1500
+max-statements=100
+max-args=10
+max-public-methods=100
+min-public-methods=0 # for super-classes of tests
+
+[TYPECHECK]
+ignored-modules = numpy
+ignored-classes = numpy

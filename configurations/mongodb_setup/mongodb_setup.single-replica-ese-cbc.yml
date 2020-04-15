@@ -1,0 +1,48 @@
+journal_dir: /media/ebs2/journal
+
+pre_cluster_start:
+  - on_mongod:
+      exec: |
+        openssl rand -base64 32 > /tmp/encryptionKey
+        chmod 400 /tmp/encryptionKey
+
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  security:
+    enableEncryption: true
+    encryptionKeyFile: /tmp/encryptionKey
+    encryptionCipherMode: AES256-CBC
+  replication:
+    oplogSizeMB: 153600   # 150GB oplog
+
+topology:
+  - cluster_type: replset
+    id: rs0
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  port: 27017
+  is_sharded: false
+  is_replset: true
+  mongodb_setup: single-replica-ese-cbc
+  # This appends the replicaset information to the end of the default mongodb_url and ends up
+  # looking like "mongodb://username:password@10.2.0.200:27017/admin?ssl=false&replicaSet=rs0"
+  mongodb_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}
+
+# Hosts to run correctness checks on.
+validate:
+  primaries:
+    - ${mongodb_setup.topology.0.mongod.0.private_ip}:27017

@@ -1,0 +1,64 @@
+# Shared by all mongods
+journal_dir: /media/ebs2/journal
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  replication:
+    replSetName: rs0
+    oplogSizeMB: 153600   # 150GB oplog
+  setParameter:
+    enableTestCommands: 1
+    opensslCipherConfig: "HIGH:!EXPORT:!aNULL:-AESGCM"
+  net:
+    port: 27017
+    bindIp: 0.0.0.0
+    ssl:
+      mode: requireSSL
+      PEMKeyFile: ${mongodb_setup.mongo_dir}/member.pem
+      PEMKeyPassword: server-perf
+      CAFile: ${mongodb_setup.mongo_dir}/root.crt
+      allowInvalidHostnames: true
+      allowConnectionsWithoutCertificates: true
+
+topology:
+  - cluster_type: replset
+    id: rs0
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  secondary: ${mongodb_setup.topology.0.mongod.1.private_ip}
+  port: 27017
+  is_sharded: false
+  is_replset: true
+  secondaries: 2
+  mongodb_setup: replica-ssl
+  # This appends the replicaset information to the end of the default mongodb_url and ends up
+  # looking like "mongodb://username:password@10.2.0.200:27017/admin?replicaSet=rs0&ssl=true'
+  # TODO: If we move this config to use the hostnames, can remove sslInvalidHostNameAllowed
+  mongodb_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}&ssl=true&sslInvalidHostNameAllowed=true
+  # Shell doesn't support sslInvalidHostNameAllowed. We add --sslAllowInvalidHostnames in python code.
+  mongodb_shell_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}&ssl=true
+  # Used in mongoshell workloads (https://github.com/10gen/workloads/blob/23b1c6dd3a8c087b6a2c949147a8aeaba1d1d271/run_workloads.py#L289-L296)
+  shell_ssl_options: ['--ssl', '--sslAllowInvalidHostnames']
+
+
+# Validation is currently broken with SSL (SERVER-7914)
+# Hosts to run correctness tests on.
+validate:
+  primaries: []

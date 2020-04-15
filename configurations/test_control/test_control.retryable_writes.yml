@@ -1,0 +1,53 @@
+task_name: retryable_writes
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+
+    # This line to be shortened after the config file is copied from below into the production server.
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      ########################################################################
+      # Test lists. Command line will indicate which list of tests to execute.
+      # The 'default' list is the default.
+      # When testing new test workloads, please put your tests in the
+      # tests.test list, and remove the existing hello
+      ########################################################################
+      tests:
+        default:
+          - insert_vector:
+              thread_levels: ${test_control.thread_levels.insert_vector.${mongodb_setup.meta.is_sharded}.${mongodb_setup.meta.storageEngine}}
+              retryable_writes: true
+          - mix:
+              thread_levels: ${test_control.thread_levels.mix.${mongodb_setup.meta.is_sharded}.${mongodb_setup.meta.storageEngine}}
+              retryable_writes: true
+        test:
+          -  # Empty list. Put new workloads here for testing
+        short:  # Just does Hello World
+          - hello:
+              parameter1: foo
+              parameter2: true
+
+      # These next five lines match existing workloads.yml.
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      # Hard coding for now. These aren't working right now
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+# This is just a lookup table. Each test may reference some leaf node here from a test parameter.
+thread_levels:
+  insert_vector:
+    "True":  # Sharded
+      wiredTiger: [1, 32, 64]
+    "False":  # Not Sharded
+      wiredTiger: [1, 8, 16]
+  mix:
+    "True":  # Sharded
+      wiredTiger: [4, 64, 128, 256, 512]
+    "False":  # Not Sharded
+      wiredTiger: [4, 64, 128, 256, 512]

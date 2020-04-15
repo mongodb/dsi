@@ -1,0 +1,35 @@
+journal_dir: /media/ebs2/journal
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  auditLog:
+    destination: file
+    format: JSON
+    path: /media/ebs2/journal/auditLog.json
+  setParameter: {auditAuthorizationSuccess: true}
+topology:
+  - cluster_type: standalone
+    id: myid1
+    public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+    private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.private_ip}
+  port: 27017
+  is_sharded: false
+  is_replset: false
+  mongodb_setup: standalone-audit
+
+# Hosts to run correctness checks on.
+validate:
+  standalone:
+    - ${mongodb_setup.topology.0.private_ip}:27017

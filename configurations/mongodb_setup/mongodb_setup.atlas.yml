@@ -1,0 +1,303 @@
+atlas:
+  # Used as key below to select the cluster configuration
+  setup: M30-repl
+  api:
+    root: https://cloud-dev.mongodb.com/api/atlas/v1.0/
+    private: https://cloud-dev.mongodb.com/api/private/
+    group_id: 5dd68a88f10fab46624c09b7
+    # atlas_api_user and atlas_api_key are given in runtime_secret.yml
+
+  clusters: ${mongodb_setup.atlas_types.${mongodb_setup.atlas.setup}}
+
+  # Example
+  # custom_build:
+  #   trueName: 4.2.0-rc1-45-g84519c5
+  #   gitVersion: 84519c5dcffde5e59a007a19be32d943b32e908e
+  #   architecture: amd64
+  #   modules:
+  #     - enterprise
+  #   platform: linux
+  #   flavor: rhel
+  #   minOsVersion: "7.0"
+  #   maxOsVersion: "8.0"
+  #   # https://evergreen.mongodb.com/task/mongodb_mongo_v4.2_enterprise_rhel_70_64_bit_compile_84519c5dcffde5e59a007a19be32d943b32e908e_19_06_20_14_41_53
+  #   url: https://s3.amazonaws.com/mciuploads/mongodb-mongo-v4.2/enterprise-rhel-70-64-bit/84519c5dcffde5e59a007a19be32d943b32e908e/binaries/mongo-mongodb_mongo_v4.2_enterprise_rhel_70_64_bit_84519c5dcffde5e59a007a19be32d943b32e908e_19_06_20_14_41_53.tgz
+
+# Meta data about this mongodb setup
+meta:
+  mongodb_setup: atlas
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.out.atlas.clusters.0.hosts}
+  is_sharded: false
+  is_replset: true
+  is_atlas: true
+  mongodb_url: mongodb://${mongodb_setup.authentication.username}:${mongodb_setup.authentication.password}@${mongodb_setup.out.atlas.clusters.0.mongodb_url}
+  # Note: atlas_setup.py verifies that this is in fact the primary (at startup time)
+  hostname: ${mongodb_setup.out.atlas.clusters.0.hostname}
+  port: ${mongodb_setup.out.atlas.clusters.0.port}
+  # We need to provide a separate variable for the shell, because the shell on 3.4 doesn't support
+  # connecting to multiple mongoses.
+  # Since Atlas clusters are >=3.6, this is just the same as mongodb_url.
+  # (Note that on Atlas, in theory we don't know which node is primary, so need to use the url.)
+  mongodb_shell_url: ${mongodb_setup.meta.mongodb_url}
+  # Atlas clusters use proper certificates, so this is all we need
+  shell_ssl_options: ['--ssl']
+
+# Correctness checks cause permission denied on Atlas, so there are none.
+# validate:
+
+authentication:
+  enabled: true
+  username: ${runtime_secret.atlas_database_user}
+  password: ${runtime_secret.atlas_database_password}
+
+post_task:
+  - on_atlas:
+      # The value is actually ignored, but there needs to be a non-empty value.
+      retrieve_logs: true
+
+
+
+# The keys in this lookup table map to atlas-setup expansion in system_perf_atlas.yml
+atlas_types:
+  just_a_template:
+    - &repl_base_template
+      autoScaling:
+        diskGBEnabled: false
+      clusterType: REPLICASET
+      mongoDBMajorVersion: 4.0
+      numShards: 1
+      providerSettings:
+        providerName: &providerName AWS
+        regionName: &regionName US_EAST_1
+        instanceSizeName: REPLACE
+
+  more_detailed_template:
+    - &repl_template
+      autoScaling:
+        diskGBEnabled: false
+      clusterType: REPLICASET
+      mongoDBMajorVersion: 4.0
+      numShards: 1
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: REPLACE
+        diskIOPS: REPLACE
+      diskSizeGB: REPLACE
+
+  # M Class
+  M10-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M10
+        diskIOPS: 300
+      diskSizeGB: 100
+
+  M20-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M20
+        diskIOPS: 600
+      diskSizeGB: 200
+
+  M30-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M30
+        diskIOPS: 3600
+      diskSizeGB: 320
+
+  M40-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M40
+        diskIOPS: 3600
+      diskSizeGB: 320
+
+  M50-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M50
+        diskIOPS: 3600
+      diskSizeGB: 320
+
+  # M60 happens to be similar to what we use in sys-perf
+  M60-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M60  # M60 roughly corresponds to c3.8xlarge
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  M100-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M100
+        diskIOPS: 8448
+      diskSizeGB: 512
+
+  # Only available in 2 EU regions.
+  # M140-repl:
+  #   - <<: *repl_template
+  #     providerSettings:
+  #      providerName: *providerName
+  #       regionName: *regionName
+  #       instanceSizeName: M140
+  #       diskIOPS: 8448
+  #     diskSizeGB: 512
+
+  M200-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M200
+        diskIOPS: 8448
+      diskSizeGB: 512
+
+  M300-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M300
+        diskIOPS: 8448
+      diskSizeGB: 512
+
+  # R Class
+  R40-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R40
+        diskIOPS: 3000
+      diskSizeGB: 320
+
+  R50-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R50
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  R60-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R60
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  R80-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R80
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  R200-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R200
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  R300-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R300
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  R400-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R400
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  R700-repl:
+    - <<: *repl_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: R700
+        diskIOPS: 5280  # sys-perf uses 5500
+      diskSizeGB: 320  # sys-perf uses 320
+
+  # M NVME class
+  M40_NVME-repl:
+    - <<: *repl_base_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M40_NVME
+      providerBackupEnabled: "True"
+
+  M50_NVME-repl:
+    - <<: *repl_base_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M50_NVME
+      providerBackupEnabled: "True"
+
+  M60_NVME-repl:
+    - <<: *repl_base_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M60_NVME
+      providerBackupEnabled: "True"
+
+  M80_NVME-repl:
+    - <<: *repl_base_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M80_NVME
+      providerBackupEnabled: "True"
+
+  M200_NVME-repl:
+    - <<: *repl_base_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M200_NVME
+      providerBackupEnabled: "True"
+
+  # Not available in US_WEST_1. It is available in US WEST 2 and US EAST 1 and 2.
+  M400_NVME-repl:
+    - <<: *repl_base_template
+      providerSettings:
+        providerName: *providerName
+        regionName: *regionName
+        instanceSizeName: M400_NVME
+      providerBackupEnabled: "True"

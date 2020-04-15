@@ -1,0 +1,242 @@
+task_name: initialsync-large
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+post_test:
+  # Clean-up dbPath+'-tmp' directory that got created during rsync.
+  - on_mongod:
+      exec: |
+        host_addr=$(hostname -i)
+        if [ "$host_addr" == "${mongodb_setup.meta.empty_node}" ]
+        then
+           echo "Cleaning the temp data directory on " $host_addr
+           rm -rf ${mongodb_setup.mongod_config_file.storage.dbPath}-tmp
+        fi
+run:
+  - id: initialsync_large_c_1_d_1_w_f
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 1
+              num_dbs: 1
+              write_load: false
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${infrastructure_provisioning.numactl_prefix} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              # string_field_size default for this workload is 300KB and num_docs is 17K to keep the size of data roughly 5GB
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_1_d_32_w_f
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 1
+              num_dbs: 32
+              write_load: false
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${infrastructure_provisioning.numactl_prefix} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_32_d_1_w_f
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    config_target: workloads/workloads.yml
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 32
+              num_dbs: 1
+              write_load: false
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${infrastructure_provisioning.numactl_prefix} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_32_d_32_w_f
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    config_target: workloads/workloads.yml
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 32
+              num_dbs: 32
+              write_load: false
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${test_control.numactl_prefix_for_workload_client} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_1_d_1_w_t
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    config_target: workloads/workloads.yml
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 1
+              num_dbs: 1
+              write_load: true
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${test_control.numactl_prefix_for_workload_client} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_1_d_32_w_t
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    config_target: workloads/workloads.yml
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 1
+              num_dbs: 32
+              write_load: true
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${test_control.numactl_prefix_for_workload_client} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_32_d_1_w_t
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    config_target: workloads/workloads.yml
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 32
+              num_dbs: 1
+              write_load: true
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${test_control.numactl_prefix_for_workload_client} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - id: initialsync_large_c_32_d_32_w_t
+    type: mongoshell
+    cmd: cd workloads &&  ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    config_target: workloads/workloads.yml
+    output_files:
+      - workloads/workloads.yml
+    workload_config:
+      tests:
+        default:
+          - initialsync:
+              num_collections: 32
+              num_dbs: 32
+              write_load: true
+              empty_node_addr: ${mongodb_setup.meta.empty_node}
+              primary_addr: ${mongodb_setup.meta.hostname}
+              sync_type: "initialSync"
+              start_mongod: ${test_control.numactl_prefix_for_workload_client} mongod --config /tmp/mongo_port_${mongodb_setup.meta.port}.conf
+              db_path: ${mongodb_setup.mongod_config_file.storage.dbPath}
+              num_docs: 17408
+              string_field_size: 307200
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      scale_factor: ${mongodb_setup.meta.primaries}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+# Initial sync test explicitly requests the clean restart of mongodb. Explicitly including here
+# regardless of setting in defaults.yml
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: true

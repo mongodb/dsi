@@ -1,0 +1,28 @@
+auto_genny_workload: scale/LargeScaleLongLived.yml
+infrastructure_provisioning: single
+platform: linux
+mongodb_setup: standalone
+storageEngine: wiredTiger
+test_control: large_scale_long_lived
+test_name: large_scale_long_lived
+production: true
+authentication: enabled
+overrides:
+  infrastructure_provisioning:
+    tfvars:
+      # This is currently only used by initialsync-logkeeper. It is empty and not used for other tests.
+      mongod_seeded_ebs_snapshot_id: 
+      # Initially used by sb_large_scale to override expire-on-delta to allow longer runtime on otherwise standard variants
+      
+  workload_setup:
+    local_repos:
+      workloads: ../src/workloads/workloads
+      ycsb: ../src/YCSB/YCSB
+      linkbench: ../src/linkbench/linkbench
+      tpcc: ../src/tpcc/tpcc
+      genny: ../src/genny/genny
+  mongodb_setup:
+    # This is currently only used by initialsync-logkeeper-short. It is empty and not used for other tests.
+    mongodb_dataset:
+    mongodb_binary_archive: 'https://s3.amazonaws.com/mciuploads/dsi/5e68f3acd1fe07709cad02ea/db557f20e03c91590ab3f6178bdcce2d327c7235/linux/mongodb-wtdevelop-5e68f3acd1fe07709cad02ea.tar.gz'
+

@@ -1,0 +1,7 @@
+task_name: service_architecture_workloads
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: PrimaryRequiredReads
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/networking/ServiceArchitectureWorkloads.yml
+

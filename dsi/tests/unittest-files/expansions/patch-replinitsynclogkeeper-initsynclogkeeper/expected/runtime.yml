@@ -1,0 +1,25 @@
+# evergreen default expansions
+branch_name: master
+build_id: sys_perf_linux_replSet_initialsync_logkeeper_patch_db557f20e03c91590ab3f6178bdcce2d327c7235_5e68f3acd1fe07709cad02ea_20_03_11_14_21_52
+build_variant: linux-replSet-initialsync-logkeeper
+execution: 1
+is_patch: true
+order: ryan.timmons_704
+project: sys-perf
+project_dir: dsi
+revision: db557f20e03c91590ab3f6178bdcce2d327c7235
+task_id: sys_perf_linux_replSet_initialsync_logkeeper_initialsync_logkeeper_patch_db557f20e03c91590ab3f6178bdcce2d327c7235_5e68f3acd1fe07709cad02ea_20_03_11_14_21_52
+task_name: initialsync-logkeeper
+version_id: 5e68f3acd1fe07709cad02ea
+workdir: /data/mci/b60aa527bb5cc909860b7f9c27f85ad7
+
+# sys-perf expansions
+dsi_rev: d11afb9169c4cf5ceb1d4f28112f419a26527454
+enterprise_rev: cc4d465764f651717620ef2b876fa19615757adb
+genny_rev: 9ec8db04a718d87cd940e6281d8d2137eac495ca
+linkbench_rev: 1bff34ee945c2c732e4147d581d5d477bceff0dd
+mongo-tools_rev: e754c8572a06a2f43bd50d60b3b44b58425b549f
+wtdevelop_rev: 9ea89ea5fa665a36518fdb28f5b6de0b84d2d5b1
+ext: 
+script_flags : 
+workloads_rev: fb3644c046e0bb385d08ec067327c9855ce9a1b3

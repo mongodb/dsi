@@ -1,0 +1,24 @@
+tfvars:
+  # Contents of this is transformed into input JSON to override terraform default values
+  # Note that all tfvars values have defaults, and are therefore optional
+  cluster_name: longevity
+
+  mongod_instance_count: 9
+  mongod_instance_type: c3.2xlarge
+
+  mongos_instance_count: 3
+  mongos_instance_type: c3.2xlarge
+
+  configsvr_instance_count: 3
+  configsvr_instance_type: c3.2xlarge
+
+  workload_instance_count: 1
+  workload_instance_type: c3.2xlarge
+
+  region: us-west-2
+  availability_zone: us-west-2b
+
+  tags:
+    expire-on-delta: 48     # adjust expire_on to now + expire-on-delta hours
+
+numactl_prefix: ""

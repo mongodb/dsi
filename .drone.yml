@@ -1,0 +1,33 @@
+pipeline:
+  publish:
+    image: plugins/ecr
+    secrets: [ecr_access_key, ecr_secret_key]
+    registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+    repo: 795250896452.dkr.ecr.us-east-1.amazonaws.com/server-dsi/${DRONE_REPO_NAME}
+    create_repository: true
+    tags:
+      - git-${DRONE_COMMIT_SHA:0:7}
+      - latest
+    when:
+      branch: master
+      event: push
+
+  deploy:
+    group: deploy
+    image: quay.io/ipedrazas/drone-helm
+    release: dsi-cronjobs
+    namespace: server-dsi
+    secrets: [prod_kubernetes_token]
+    prefix: prod
+    environment:
+      - API_SERVER=https://api.prod.corp.mongodb.com
+    helm_repos: mongodb=https://10gen-ops.github.io/helm-charts
+    chart: mongodb/cronjobs
+    chart-version: 1.2.0
+    tiller_ns: server-dsi
+    client_only: true
+    values: "image.tag=git-${DRONE_COMMIT_SHA:0:7},image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/server-dsi/${DRONE_REPO_NAME}"
+    values_files: ["cronjobs.yml"]
+    when:
+      branch: master
+      event: push

@@ -1,0 +1,7 @@
+out:
+  mongod:
+    - private_ip: 10.2.0.100
+      public_ip: 52.26.153.91
+  workload_client:
+    - private_ip: 10.2.0.10
+      public_ip: 52.32.13.97

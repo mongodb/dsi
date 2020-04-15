@@ -1,0 +1,108 @@
+# This configuration is based off of work in https://jira.mongodb.org/browse/PERF-1792 and this
+# report:
+# https://docs.google.com/document/d/10Rod0WeFARdDrBH8Uh-zQJY__7QwCdfQcR2XaN4C3as/edit?usp=sharing
+
+# Shared by all mongods
+# Unset journal dir so same device.
+# TODO PERF-1572
+journal_dir: ~/data/no-journal-mount  # This is a hack to link to the same device.
+
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+    wiredTiger:
+      engineConfig:
+        configString: "cache_size=36864MB, session_max=32000"  # M60 specific
+  replication:
+    replSetName: rs0
+  net:
+    compression:
+      compressors: snappy,zlib
+    maxIncomingConnections: 32000
+    port: 27017
+    bindIp: 0.0.0.0
+    ssl:
+      mode: requireSSL
+      PEMKeyFile: ${mongodb_setup.mongo_dir}/member.pem
+      PEMKeyPassword: server-perf
+      CAFile: ${mongodb_setup.mongo_dir}/root.crt
+      allowInvalidHostnames: true
+      allowConnectionsWithoutCertificates: true
+  setParameter:
+    # Set parameters pulled from Atlas log files as part of https://docs.google.com/document/d/10Rod0WeFARdDrBH8Uh-zQJY__7QwCdfQcR2XaN4C3as/edit?usp=sharing
+    honorSystemUmask: true
+    reportOpWriteConcernCountersInServerStatus: true
+    suppressNoTLSPeerCertificateWarning: true
+    ttlMonitorEnabled: true
+    # watchdogPeriodSeconds: 60 # Requires enterprise build. Currently won't start even with the
+    # enterprise build
+    # authenticationMechanisms: SCRAM-SHA-1
+
+rs_conf:
+  settings:
+    chainingAllowed: false
+    electionTimeoutMillis: 5000
+    catchUpTakeoverDelayMillis: 30000
+
+topology:
+  - cluster_type: replset
+    id: rs0
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+
+# This adds delay to the cluster from the client. It adds 300us from client to cluster, and 300us
+# from cluster back to client, to approximately match observed Atlas latencies. It adds the same
+# delay to edges between cluster nodes.
+# See https://wiki.linuxfoundation.org/networking/netem for reference on TC.
+network_delays:
+  version_flag: M60-like
+  clusters:
+    - default:
+        delay_ms: 0.3
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  secondary: ${mongodb_setup.topology.0.mongod.1.private_ip}
+  port: 27017
+  is_sharded: false
+  is_replset: true
+  secondaries: 2
+  mongodb_setup: atlas-like-replica
+  # This appends the replicaset information to the end of the default mongodb_url and ends up
+  # looking like "mongodb://username:password@10.2.0.200:27017/admin?ssl=false&replicaSet=rs0"
+  # TODO: If we move this config to use the hostnames, can remove sslInvalidHostNameAllowed
+  mongodb_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}&ssl=true&sslInvalidHostNameAllowed=true
+  # Shell doesn't support sslInvalidHostNameAllowed. We add --sslAllowInvalidHostnames in python code.
+  mongodb_shell_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}&ssl=true
+  # Used in mongoshell workloads (https://github.com/10gen/workloads/blob/23b1c6dd3a8c087b6a2c949147a8aeaba1d1d271/run_workloads.py#L289-L296)
+  shell_ssl_options: ['--ssl', '--sslAllowInvalidHostnames']
+
+# Hosts to run correctness tests on.
+validate:
+  primaries: []
+
+post_cluster_start:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_shell_url}
+        script: |
+          var runPing = function(iterations) {
+          var start = Date.now();
+          for (i = 0; i < iterations; i++) {
+          res = db.runCommand({"ping": 1});
+          }
+          var end = Date.now();
+          print(end-start);
+          return end-start;
+          }
+          runPing(1000)
+          runPing(1000)

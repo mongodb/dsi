@@ -1,0 +1,51 @@
+task_name: change_streams_latency
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - &change_streams_latency_base
+    id: change_streams_latency_base
+    type: mongoshell
+
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config: &workload_config
+      tests:
+        default:
+          - change_streams_latency:
+              thread_levels: [4, 60]
+              listener_levels: [0, 1, 15, 105]
+              update_lookup: false
+              selective_change: false
+              nb_collections: 1
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+  - <<: *change_streams_latency_base
+    id: change_streams_latency_update_lookup
+    workload_config:
+      <<: *workload_config
+      tests:
+        default:
+          - change_streams_latency:
+              thread_levels: [4, 60]
+              listener_levels: [15]
+              update_lookup: true
+              selective_change: false
+              nb_collections: 1
+
+  - <<: *change_streams_latency_base
+    id: change_streams_latency_5collections
+    workload_config:
+      <<: *workload_config
+      tests:
+        default:
+          - change_streams_latency:
+              thread_levels: [60]
+              listener_levels: [15]
+              update_lookup: false
+              selective_change: false
+              nb_collections: 1

@@ -1,0 +1,180 @@
+task_name: ycsb-60GB
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ycsb_load
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb load mongodb -s
+      -P ../../workloadEvergreen
+      -threads 8;
+    config_filename: workloadEvergreen
+    # Record count of 56320000 = 55 * 1024 * 1000 so that it easily divides by power of 2 thread
+    # counts, and powers of 10.
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}
+      mongodb.fle=${mongodb_setup.meta.is_fle}
+      recordcount=56320000
+      operationcount=200000000
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=1.0
+      updateproportion=0.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+      batchsize=100
+    skip_validate: true
+
+  - id: ycsb_100read
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      for level in ${test_control.thread_levels.${mongodb_setup.meta.is_atlas}.level100r.${mongodb_setup.meta.is_sharded}}; do
+        ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s \
+        -P ../../workloadEvergreen_100read \
+        -threads $level;
+      done
+    config_filename: workloadEvergreen_100read
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}
+      mongodb.fle=${mongodb_setup.meta.is_fle}
+      recordcount=56320000
+      operationcount=20000000
+      maxexecutiontime=360
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=1.0
+      updateproportion=0.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+    skip_validate: true
+
+  - id: ycsb_95read5update
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      for level in ${test_control.thread_levels.${mongodb_setup.meta.is_atlas}.level95-5.${mongodb_setup.meta.is_sharded}}; do
+        ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s \
+        -P ../../workloadEvergreen_95read5update \
+        -threads $level;
+      done
+    config_filename: workloadEvergreen_95read5update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}
+      mongodb.fle=${mongodb_setup.meta.is_fle}
+      recordcount=56320000
+      operationcount=20000000
+      maxexecutiontime=360
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.95
+      updateproportion=0.05
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+    skip_validate: true
+
+  - id: ycsb_100update
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      for level in ${test_control.thread_levels.${mongodb_setup.meta.is_atlas}.level100u.${mongodb_setup.meta.is_sharded}}; do
+        ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s \
+        -P ../../workloadEvergreen_100update \
+        -threads $level;
+      done
+    config_filename: workloadEvergreen_100update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}
+      mongodb.fle=${mongodb_setup.meta.is_fle}
+      recordcount=56320000
+      operationcount=20000000
+      maxexecutiontime=360
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0
+      updateproportion=1.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+    skip_validate: true
+
+  - id: ycsb_50read50update
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      for level in ${test_control.thread_levels.${mongodb_setup.meta.is_atlas}.level50-50.${mongodb_setup.meta.is_sharded}}; do
+        ${test_control.numactl_prefix_for_workload_client} ./bin/ycsb run mongodb -s \
+        -P ../../workloadEvergreen_50read50update \
+        -threads $level;
+      done
+    config_filename: workloadEvergreen_50read50update
+    workload_config: |
+      mongodb.url=${mongodb_setup.meta.mongodb_url}
+      mongodb.fle=${mongodb_setup.meta.is_fle}
+      recordcount=56320000
+      operationcount=20000000
+      maxexecutiontime=360
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=0.5
+      updateproportion=0.5
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+    skip_validate: true
+
+# Note: where multiple thread levels support is provided, it is implemented as a bash loop. As a
+# result, arrays MUST be passed as strings.
+# Single values could be strings or numbers BUT in the following configurations string values are
+# passed where ever an array can be used and number literals are passed where a single value (only)
+# can be used.
+# Note: the load test is not run in a loop and only supports a single thread level.
+thread_levels:
+  "False":  # is_atlas
+    level100r:
+      "True": "128"  # sharded
+      "False": "128"    # not sharded
+    level95-5:
+      "True": "64"
+      "False": "16"
+    level100u:
+      "True": "16"
+      "False": "32"
+    level50-50:
+      "True": "32"
+      "False": "64"
+
+  # For Atlas we don't even try to hit the right thread level for each cluster size.
+  # Instead we run all the thread levels, one of them will be the peak.
+  "True":  # is_atlas
+    level100r:
+      "False": "8 16 32 64 128"
+    level95-5:
+      "False": "8 16 32 64 128"
+    level100u:
+      "False": "8 16 32 64 128"
+    level50-50:
+      "False": "8 16 32 64 128"
+
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: false
+
+pre_task:
+  - on_workload_client:
+      exec_mongo_shell:
+        connection_string: ${mongodb_setup.meta.mongodb_shell_url}
+        # Shard the YCSB cluster if sharding is enabled
+        script: ${test_control.ycsb_sharding_script}
+  - on_workload_client:
+      exec: ${test_control.start_mongo_cryptd}
+
+# This test induces replication lag. The longer timeout is needed to allow the system to catch up.
+# these options are passed to the mongo shutdownServer command
+shutdown_options:
+  force: true
+  timeoutSecs: 180

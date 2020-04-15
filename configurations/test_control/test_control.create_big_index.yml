@@ -1,0 +1,7 @@
+task_name: create_big_index
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: CreateBigIndex
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/execution/CreateBigIndex.yml
+

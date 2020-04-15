@@ -1,0 +1,103 @@
+# snapshot_window is an inactive test. This config is just an example
+task_name: snapshot_window
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      tests:
+        default:
+          # The following are static vs dynamic window tests
+          # Static should have higher read success, but less write throughput, than dynamic,
+          # when the cache is put under pressure by enough writers.
+          - snapshot_window:
+              writer_threads: 1
+              reader_threads: 20
+              static_window: false
+              nb_docs: 40
+              server_cache_size_gb: 1
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 1
+              reader_threads: 20
+              static_window: true
+              nb_docs: 40
+              server_cache_size_gb: 1
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 2
+              reader_threads: 20
+              static_window: false
+              nb_docs: 40
+              server_cache_size_gb: 1
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 2
+              reader_threads: 20
+              static_window: true
+              nb_docs: 40
+              server_cache_size_gb: 1
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 3
+              reader_threads: 20
+              static_window: false
+              nb_docs: 40
+              server_cache_size_gb: 1
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 3
+              reader_threads: 20
+              static_window: true
+              nb_docs: 40
+              server_cache_size_gb: 1
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          # The following test dynamic with higher cache size.
+          # Higher read success and more write throughput is expected.
+          - snapshot_window:
+              writer_threads: 1
+              reader_threads: 20
+              static_window: false
+              nb_docs: 40
+              server_cache_size_gb: 5
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 2
+              reader_threads: 20
+              static_window: false
+              nb_docs: 40
+              server_cache_size_gb: 5
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+          - snapshot_window:
+              writer_threads: 3
+              reader_threads: 20
+              static_window: false
+              nb_docs: 40
+              server_cache_size_gb: 5
+              snapshot_held_open_for_seconds: 2
+              test_duration_secs: 40
+
+      # These next five lines match existing workloads.yml.
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      # Hard coding for now. These aren't working right now
+      sharded: false
+      replica: true
+
+between_tests:
+  - restart_mongodb:
+      clean_logs: true
+      clean_db_dir: true

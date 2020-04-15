@@ -1,0 +1,5 @@
+private_member_ip = 10.2.0.100
+private_ip_mc = 10.2.0.10
+public_ip_mc = 52.32.13.97
+public_member_ip = 52.26.153.91
+total_count = 1

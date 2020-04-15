@@ -1,0 +1,74 @@
+# Shared by all mongods
+journal_dir: /media/ebs2/journal
+# Dataset with FCV 4.4 set
+mongodb_dataset: "https://s3-us-west-2.amazonaws.com/dsi-donot-remove/InitialSyncLogKeeper/logkeeper-slice-data-mongodb-4.4.tgz"
+
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  replication:
+    replSetName: logkeeper-short-rs0
+    oplogSizeMB: 153600   # 150GB oplog
+    # setParameter:
+    # Exhaust cursor feature support is available only since MongoDB 4.1.4.
+    # To enable/disable exhaust cursor support for initial sync collection cloner.
+    # Default is true (i.e. exhaust cursor support is enabled) since MongoDB 4.1.4.
+    # collectionClonerUsesExhaust: true
+
+authentication:
+  enabled: false
+
+pre_cluster_start:
+  # Load logkeeper data on all mongod nodes except an empty data bearing node that will
+  # sync data from its primary.
+  - on_mongod:
+      exec: |
+        host_addr=$(hostname -i)
+        if [ "$host_addr" == "${infrastructure_provisioning.out.mongod.0.private_ip}" ]
+        then
+           echo "Loading data" "${mongodb_setup.mongodb_dataset}" "on" "$host_addr"
+           cd data && { curl --retry 10 -fsS "${mongodb_setup.mongodb_dataset}" -o logkeeper-slice-data.tgz; cd - || exit 1;}
+           db_path=${mongodb_setup.mongod_config_file.storage.dbPath}
+           rm -rf "$db_path"; mkdir -p "$db_path"
+           tar -xf ./data/logkeeper-slice-data.tgz -C "$db_path"
+        fi
+
+topology:
+  - id: logkeeper-short-rs0
+    cluster_type: replset
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+        clean_db_dir: false
+        use_journal_mnt: false
+      - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+        use_journal_mnt: false
+        rs_conf_member:
+          arbiterOnly: true
+  - cluster_type: standalone
+    public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+    private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+    use_journal_mnt: false
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  secondary: ${mongodb_setup.topology.0.mongod.1.private_ip}
+  port: 27017
+  empty_node: ${mongodb_setup.topology.1.private_ip}
+  is_sharded: false
+  is_replset: true
+  secondaries: 1  # Only 1 secondary at start
+  mongodb_setup: initialsync-logkeeper-short

@@ -1,0 +1,77 @@
+run:
+  - id: benchRun-${mongodb_setup.mongod_config_file.storage.engine}
+    type: mongoshell
+
+    # This line to be shortened after the config file is copied from below into the production server.
+    cmd: cd workloads && ./run_workloads.py -c workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    workload_config:
+      ########################################################################
+      # Test lists. Command line will indicate which list of tests to execute.
+      # The 'default' list is the default.
+      # When testing new test workloads, please put your tests in the
+      # tests.test list, and remove the existing hello
+      ########################################################################
+      tests:
+        default:
+          - contended_update
+          - map_reduce
+          - insert_capped
+          - insert_ttl
+          - insert_capped_indexes
+          - insert_vector
+          - word_count
+          - jtrue
+          - move_chunk
+          - mongos_read_single
+          - mongos_insert_vector
+          - mongos_insert_single
+          - mongos_50read_50write
+          - move_chunk_with_load
+        test:
+          -  # Empty list. Put new workloads here for testing
+        short:  # Just does Hello World
+          - hello:
+              parameter1: foo
+              parameter2: [true, false]
+
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      # Hard coding for now. These aren't working right now
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      storageEngine: ${mongodb_setup.mongod_config_file.storage.engine}
+  - id: ycsb_load
+    type: ycsb
+    cmd: >
+      cd YCSB/ycsb-mongodb;
+      ${infrastructure_provisioning.numactl_prefix} ./bin/ycsb load mongodb -s
+      -P workloads/workloadEvergreen
+      -threads ${test_control.thread_levels.load.${mongodb_setup.meta.is_sharded}.${mongodb_setup.meta.storageEngine}};
+      sleep 1;
+    config_filename: workloadEvergreen
+    workload_config: |
+      mongodb.url=mongodb://${mongodb_setup.meta.hosts}/ycsb
+      recordcount=5000000
+      operationcount=20000000
+      workload=com.yahoo.ycsb.workloads.CoreWorkload
+      readallfields=true
+      readproportion=1.0
+      updateproportion=0.0
+      scanproportion=0
+      insertproportion=0.0
+      requestdistribution=zipfian
+    pre_test:
+      - on_workload_client:
+          upload_files:
+            workloadEvergreen: YCSB/ycsb-mongodb/workloads/workloadEvergreen
+  - id: iperf
+    type: iperf
+    cmd: '${infrastructure_provisioning.numactl_prefix} ./iperf-test.sh ${mongodb_setup.meta.hostname}'
+    skip_validate: true
+    post_test:
+      - on_workload_client:
+          retrieve_files:
+            source: iperf.json
+            target: ../iperf.json
+

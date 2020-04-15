@@ -1,0 +1,4 @@
+nested:
+  quite:
+    - deeply:
+        "this key has a space": and is thus invalid

@@ -1,0 +1,34 @@
+# Input for workload_setup.py
+
+# Top-level key corresponds to test_control.run.type
+ycsb:  # So these steps would be called if there are any workload runs with type='ycsb'
+  - on_workload_client:  # Like usual...
+      retrieve_files:
+        - source: remote_file_path
+          target: local_file_path
+  - on_workload_client:  # Like usual...
+      exec: "echo 'mixing shell and yaml syntax is like translating from Japanese to Orkish'"
+  - on_localhost:
+      # The checkout_repos command makes a clone of the git repository `source`. The `branch` key is
+      # optional: when it is set, the specified branch is checked out after cloning, otherwise the
+      # default branch is the checked out repo. The branch target can be a branch, tag, or
+      # reference. The `verbose` flag is optional: when omitted it is false, otherwise it is true if set to
+      # true.
+      checkout_repos:
+        - source: git@github.com:mongodb-labs/YCSB.git
+          target: ./YCSB
+          branch: 5742781
+          verbose: false
+
+
+# The full range of on_* commands is supported, but notably *only* the on_* commands, so no
+# restart_mongodb or others.
+#
+# Note on MongoDB Java Driver versions:
+#
+# For ycsb, the pom.xml file declares `mongo.version` as a property. This can be passed to maven:
+#
+#     mvn -Dmongo.version=3.8.1 clean package
+#
+# Linkbench does not currently provide this, rather java driver version is hard coded in the pom.xml
+# here: https://github.com/10gen/linkbench/blob/74169f615e7c3a7b7e5a43471f59f4e426240ba7/pom.xml#L86

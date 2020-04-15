@@ -1,0 +1,71 @@
+{
+      "results": [
+          {
+              "workload": "ycsb",
+              "name": "ycsb_load-mmapv1",
+              "start": 1470669497,
+              "end": 1470669685,
+              "results": {
+                  "32": {
+                      "ops_per_sec": 26982.10546765385,
+                      "replica_avg_lag": 1.000900900900901,
+                      "replica_max_lag": 2,
+                      "replica_end_of_test_lag": 1
+                  }
+              }
+          },
+          {
+              "workload": "ycsb",
+              "name": "ycsb_100read-mmapv1",
+              "start": 1470669754,
+              "end": 1470670039,
+              "results": {
+                  "64": {
+                      "ops_per_sec": 70642.42218737197
+                  }
+              }
+          },
+          {
+              "workload": "ycsb",
+              "name": "ycsb_95read5update-mmapv1",
+              "start": 1470670111,
+              "end": 1470670403,
+              "results": {
+                  "64": {
+                      "ops_per_sec": 69057.19662310308,
+                      "replica_avg_lag": 0.9243986254295533,
+                      "replica_max_lag": 2,
+                      "replica_end_of_test_lag": 1
+                  }
+              }
+          },
+          {
+              "workload": "ycsb",
+              "name": "ycsb_50read50update-mmapv1",
+              "start": 1470670475,
+              "end": 1470670922,
+              "results": {
+                  "64": {
+                      "ops_per_sec": 44923.62982929021,
+                      "replica_avg_lag": 0.8909634055265123,
+                      "replica_max_lag": 2,
+                      "replica_end_of_test_lag": 2
+                  }
+              }
+          },
+          {
+              "workload": "ycsb",
+              "name": "ycsb_50read50update_w_majority-mmapv1",
+              "start": 1470670998,
+              "end": 1470671600,
+              "results": {
+                  "64": {
+                      "ops_per_sec": 12999.21503270697,
+                      "replica_avg_lag": 1.0298837852794687,
+                      "replica_max_lag": 2,
+                      "replica_end_of_test_lag": 2
+                  }
+              }
+          }
+      ]
+  }

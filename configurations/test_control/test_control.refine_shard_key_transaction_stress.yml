@@ -1,0 +1,10 @@
+task_name: refine_shard_key_transaction_stress
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: ReplaceMillionDocsInSeparateTxns
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/scale/ReplaceMillionDocsInSeparateTxns.yml
+
+  - id: UpdateMillionDocsInTxn
+    type: genny
+    config_filename: ./dist/etc/genny/workloads/scale/UpdateMillionDocsInTxn.yml

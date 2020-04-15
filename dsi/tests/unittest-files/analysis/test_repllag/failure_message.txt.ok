@@ -1,0 +1,60 @@
+
+RULE ftdc_replica_lag_check	| lag end threshold (s): 2.0	| lag start threshold (s): 15.0	| primary member: 0
+  Member 1: 
+	start time: 2017-05-31 16:42:29Z
+	start value (s): 16.0
+	max time: 2017-05-31 16:54:42Z
+	max value (s): 129.0
+	end time: 2017-05-31 16:54:42Z
+	end value (s): 120.0
+
+	start time: 2017-05-31 16:55:26Z
+	start value (s): 17.0
+	max time: 2017-05-31 16:59:23Z
+	max value (s): 104.0
+	end time: 2017-05-31 16:59:26Z
+	end value (s): 99.0
+
+	start time: 2017-05-31 17:00:19Z
+	start value (s): 16.0
+	max time: 2017-05-31 17:04:33Z
+	max value (s): 117.0
+	end time: 2017-05-31 17:04:34Z
+	end value (s): 110.0
+
+	start time: 2017-05-31 17:05:31Z
+	start value (s): 16.0
+	max time: 2017-05-31 17:09:13Z
+	max value (s): 93.0
+	end time: 2017-05-31 17:09:32Z
+	end value (s): 12.0
+
+  Member 2: 
+	start time: 2017-05-31 16:42:47Z
+	start value (s): 16.0
+	max time: 2017-05-31 16:54:03Z
+	max value (s): 90.0
+	end time: 2017-05-31 16:54:04Z
+	end value (s): 82.0
+
+	start time: 2017-05-31 16:55:35Z
+	start value (s): 16.0
+	max time: 2017-05-31 16:58:53Z
+	max value (s): 76.0
+	end time: 2017-05-31 16:59:00Z
+	end value (s): 72.0
+
+	start time: 2017-05-31 17:00:27Z
+	start value (s): 16.0
+	max time: 2017-05-31 17:03:53Z
+	max value (s): 80.0
+	end time: 2017-05-31 17:03:58Z
+	end value (s): 77.0
+
+	start time: 2017-05-31 17:05:39Z
+	start value (s): 16.0
+	max time: 2017-05-31 17:08:53Z
+	max value (s): 70.0
+	end time: 2017-05-31 17:08:54Z
+	end value (s): 62.0
+

@@ -1,0 +1,60 @@
+# Shared by all mongods
+journal_dir: /media/ebs2/journal
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  replication:
+    replSetName: rs0
+    oplogSizeMB: 153600   # 150GB oplog
+  security:
+    keyFile: /tmp/clusterKeyFile
+    clusterAuthMode: keyFile
+  net:
+    port: 27017
+    bindIp: 0.0.0.0
+
+topology:
+  - cluster_type: replset
+    id: rs0
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+      edges:
+        # Explicitly set all replset edges to 200ms, leaving provisioning to primary undelayed.
+        - node1: ${infrastructure_provisioning.out.mongod.0.private_ip}
+          node2: ${infrastructure_provisioning.out.mongod.1.private_ip}
+          delay:
+            delay_ms: 200
+            jitter_ms: 0
+        - node1: ${infrastructure_provisioning.out.mongod.0.private_ip}
+          node2: ${infrastructure_provisioning.out.mongod.2.private_ip}
+          delay:
+            delay_ms: 200
+            jitter_ms: 0
+        - node1: ${infrastructure_provisioning.out.mongod.1.private_ip}
+          node2: ${infrastructure_provisioning.out.mongod.2.private_ip}
+          delay:
+            delay_ms: 200
+            jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  secondary: ${mongodb_setup.topology.0.mongod.1.private_ip}
+  port: 27017
+  is_sharded: false
+  is_replset: true
+  secondaries: 2
+  mongodb_setup: replica-auth-cluster-delay
+  mongodb_url: ${mongodb_setup.meta.mongodb_url_base}?replicaSet=${mongodb_setup.topology.0.id}

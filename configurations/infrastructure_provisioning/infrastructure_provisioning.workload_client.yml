@@ -1,0 +1,48 @@
+# This config file will deploy a single workload client host and no mongod nodes.
+# We use this to benchmark Atlas clusters.
+
+# Unset default. Since Atlas uses all CPUs, we want to do the same on the workload client.
+numactl_prefix: ""
+
+tfvars:
+  cluster_name: workload_client
+
+  mongod_instance_count: 0
+  mongod_ebs_instance_count: 0
+
+  workload_instance_count: 1
+  workload_instance_type: ${infrastructure_provisioning.atlas_instance_sizes.${mongodb_setup.atlas.setup}}
+  # Don't disable hyperthreading. (We disable HT cpus by default if this isn't here.)
+  with_hyperthreading: "yes"
+
+  # Atlas Cloud Dev has the most capacity in that region and US-EAST-1 and US-WEST-1.
+  # We kept getting InsufficientInstanceCapacity for us-west-1, so changed back to east.
+  region: us-east-1
+  availability_zone: us-east-1a
+
+# The workload_client needs to match the sizing of the Atlas cluster.
+atlas_instance_sizes:
+  not_atlas: c3.8xlarge  # This is the default
+  M10-repl: m4.large
+  M20-repl: m4.large
+  M30-repl: m4.large
+  M40-repl: m4.xlarge
+  M50-repl: m4.2xlarge
+  M60-repl: m5.4xlarge
+  M100-repl: m4.10xlarge
+  M200-repl: m4.16xlarge
+  M300-repl: m5.24xlarge
+  R40-repl: r4.large
+  R50-repl: r4.xlarge
+  R60-repl: r4.2xlarge
+  R80-repl: r4.4xlarge
+  R200-repl: r4.8xlarge
+  R300-repl: r5.12xlarge
+  R400-repl: r4.16xlarge
+  R700-repl: r5.24xlarge
+  M40_NVME-repl: i3.large
+  M50_NVME-repl: i3.xlarge
+  M60_NVME-repl: i3.2xlarge
+  M80_NVME-repl: i3.4xlarge
+  M200_NVME-repl: i3.8xlarge
+  M400_NVME-repl: i3.metal

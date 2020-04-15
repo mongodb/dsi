@@ -1,0 +1,53 @@
+task_name: secondary_performance
+numactl_prefix_for_workload_client: ${infrastructure_provisioning.numactl_prefix}
+run:
+  - id: benchRun
+    type: mongoshell
+
+    # This line to be shortened after the config file is copied from below into the production server.
+    cmd: cd workloads && ${test_control.numactl_prefix_for_workload_client} ./run_workloads.py -c ../workloads.yml
+    config_filename: workloads.yml  # The name used in previous row
+    output_files:
+      - workloads/workload_timestamps.csv
+    workload_config:
+      ########################################################################
+      # Test lists. Command line will indicate which list of tests to execute.
+      # The 'default' list is the default.
+      # When testing new test workloads, please put your tests in the
+      # tests.test list, and remove the existing hello
+      ########################################################################
+      tests:
+        default:
+          - secondary_performance:
+              size: 1
+              count: 10000000  # 10M
+              primary: ${mongodb_setup.meta.hostname}
+              secondary: ${mongodb_setup.meta.secondary}
+              thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.storageEngine}}
+          - secondary_performance:
+              size: 100
+              count: 10000000  # 10M
+              primary: ${mongodb_setup.meta.hostname}
+              secondary: ${mongodb_setup.meta.secondary}
+              thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.storageEngine}}
+          - secondary_performance:
+              size: 1000
+              count: 10000000  # 10M
+              primary: ${mongodb_setup.meta.hostname}
+              secondary: ${mongodb_setup.meta.secondary}
+              thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.storageEngine}}
+          - secondary_performance:
+              size: 10000
+              count: 1000000  # 1M
+              primary: ${mongodb_setup.meta.hostname}
+              secondary: ${mongodb_setup.meta.secondary}
+              thread_levels: ${test_control.thread_levels.${mongodb_setup.meta.storageEngine}}
+      target: ${mongodb_setup.meta.hostname}
+      port: ${mongodb_setup.meta.port}
+      sharded: ${mongodb_setup.meta.is_sharded}
+      replica: ${mongodb_setup.meta.is_replset}
+      shell_ssl_options: ${mongodb_setup.meta.shell_ssl_options}
+
+thread_levels:
+  mmapv1: [10]
+  wiredTiger: [32]

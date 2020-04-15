@@ -1,0 +1,52 @@
+# A special case / non-default configuration where the single secondary is non-voting.
+# See https://jira.mongodb.org/browse/PERF-1172
+# And https://docs.mongodb.com/manual/tutorial/configure-a-non-voting-replica-set-member/
+
+journal_dir: /media/ebs2/journal
+mongod_config_file:
+  storage:
+    engine: ${bootstrap.storageEngine}
+  replication:
+    oplogSizeMB: 153600   # 150GB oplog
+
+topology:
+  - id: secondary_performance
+    cluster_type: replset
+    mongod:
+      - public_ip: ${infrastructure_provisioning.out.mongod.0.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.0.private_ip}
+      - public_ip: ${infrastructure_provisioning.out.mongod.1.public_ip}
+        private_ip: ${infrastructure_provisioning.out.mongod.1.private_ip}
+        rs_conf_member:  # The member specific part of rs.conf() json object,
+          priority: 0    # to go under rs.conf().member[0]
+          votes: 0
+  - id: dummy_node  # This avoids BF-7733 for now
+    cluster_type: standalone
+    public_ip: ${infrastructure_provisioning.out.mongod.2.public_ip}
+    private_ip: ${infrastructure_provisioning.out.mongod.2.private_ip}
+
+network_delays:
+  clusters:
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+    - default:
+        delay_ms: 0
+        jitter_ms: 0
+
+# Meta data about this mongodb setup
+meta:
+  # The list of hosts that can be used in a mongodb connection string
+  hosts: ${mongodb_setup.topology.0.mongod.0.private_ip}:27017
+  hostname: ${mongodb_setup.topology.0.mongod.0.private_ip}
+  secondary: ${mongodb_setup.topology.0.mongod.1.private_ip}
+  port: 27017
+  is_sharded: false
+  is_replset: true
+  secondaries: 1
+  mongodb_setup: secondary-performance
+
+# Hosts to run correctness tests on.
+validate:
+  primaries:
+    - ${mongodb_setup.topology.0.mongod.0.private_ip}:27017

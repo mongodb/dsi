@@ -1,0 +1,63 @@
+# Write hostnames to /etc/hosts on deployed hosts. (Uses private ip:s when available.)
+hostnames:
+  # Supported methods: /etc/hosts and null
+  method: /etc/hosts
+  domain: dsitest.dev
+
+# Terraform variables
+# Contents of this is transformed into input JSON to override terraform default values.
+# Note: all tfvars values have defaults, and are therefore optional.
+tfvars:
+  cluster_name: shard
+  mongod_instance_count: 9
+  mongos_instance_count: 3
+  configsvr_instance_count: 3
+  workload_instance_count: 1
+
+  mongod_instance_type: c3.8xlarge
+  configsvr_instance_type: m3.4xlarge
+  mongos_instance_type: c3.8xlarge
+  workload_instance_type: c3.8xlarge
+
+  region: us-west-2
+  availability_zone: us-west-2a
+
+  ssh_user: ec2-user
+  ssh_key_name: linus.torvalds  # The name of the SSH key as known to EC2
+  ssh_key_file: ~/.ssh/linustorvalds.pem  # The actual SSH key, the .pem file downloaded from EC2
+
+  # List of supported tags (at this point, you cannot add your own).
+  # Note: Name is generated per instance, cannot be set in config file.
+  tags:
+    owner: linus.torvalds@10gen.com  # Valid email address
+    expire-on-delta: 2  # Set expire-on tag used by reaper script. Note: must be lower case. Delta is hours added to current date (default: 2).
+    Variant: Linux 3-shard cluster
+    Project: sys-perf
+
+# Prefix to use before starting mongod or a workload client (optional)
+numactl_prefix: numactl --interleave=all --cpunodebind=1
+
+terraform:
+  # A string, or False
+  required_version: Terraform v0.9.11
+
+# Note: this does not exist yet.
+# Longer term, I would hope to see a mechanism where user can add custom terraform code. Probably
+# depends on how using a separate working dir is implemented. This can contain arbitrary terraform
+# declarations, that are appended to the terraform config that's already there for the variant
+# that is the base for this config.
+custom_terraform: |
+  resource "aws_ebs_volume" "my_ebs_volume" {
+  }
+
+# Ordered list of thing to do after Terraform provisioning is complete and successful.
+# Same functionality as described in pre_task in test_control.yml.
+post_provisioning:
+  - on_all_hosts:
+      exec: |
+        # set ulimit nofile for user
+        echo "${infrastructure_provisioning.tfvars.ssh_user}           soft    nofile          65535" | sudo tee -a /etc/security/limits.conf
+        echo "${infrastructure_provisioning.tfvars.ssh_user}           hard    nofile          65535" | sudo tee -a /etc/security/limits.conf
+        echo "${infrastructure_provisioning.tfvars.ssh_user}   soft   core   unlimited" | sudo tee -a /etc/security/limits.conf
+        echo "${infrastructure_provisioning.tfvars.ssh_user}   hard   core   unlimited" | sudo tee -a /etc/security/limits.conf
+        echo "$HOME/data/logs/core.%e.%p.%h.%t" |sudo tee -a  /proc/sys/kernel/core_pattern

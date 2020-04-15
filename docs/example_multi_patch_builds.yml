@@ -1,0 +1,12 @@
+project: sys-perf
+description: Demo multi-patch build of mongo master
+n: 5
+mongo_repo: mongo/master
+# dsi_repo: dsi/master
+# workloads_repo: workloads/master
+variants:
+  - linux-standalone
+  - linux-1-node-replSet
+tasks:
+  - core_workloads_WT
+  - core_workloads_MMAPv1
